@@ -2762,6 +2762,8 @@ dependencies = [
     { name = "open-clip-torch" },
     { name = "pillow" },
     { name = "pyarrow" },
+    { name = "rich" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -2781,6 +2783,8 @@ requires-dist = [
     { name = "open-clip-torch", specifier = ">=2.30" },
     { name = "pillow", specifier = ">=11" },
     { name = "pyarrow", specifier = ">=18" },
+    { name = "rich", specifier = ">=13" },
+    { name = "typer", specifier = ">=0.12" },
 ]
 
 [package.metadata.requires-dev]

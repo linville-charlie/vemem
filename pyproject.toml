@@ -35,7 +35,12 @@ dependencies = [
     "open_clip_torch>=2.30",
     "pillow>=11",
     "mcp>=1.12",
+    "typer>=0.12",
+    "rich>=13",
 ]
+
+[project.scripts]
+vm = "vemem.cli.app:main"
 
 [project.urls]
 Homepage = "https://github.com/linville-charlie/vemem"
