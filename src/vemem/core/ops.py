@@ -22,7 +22,7 @@ Ops in this file: ``identify``, ``label``, ``relabel``, ``merge``, ``split``,
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from vemem.core.enums import Kind, Method, Modality, OpType, Polarity, Source, Status
@@ -30,6 +30,7 @@ from vemem.core.errors import (
     EntityUnavailableError,
     KindMismatchError,
     ModalityMismatchError,
+    OperationNotReversibleError,
 )
 from vemem.core.ids import new_id
 from vemem.core.types import Binding, Candidate, Entity, EventLog, Fact
@@ -1027,3 +1028,324 @@ def _event_log_dict(e: EventLog) -> dict[str, Any]:
         "reversible_until": e.reversible_until.isoformat() if e.reversible_until else None,
         "reversed_by": e.reversed_by,
     }
+
+
+# ---------- undo (§4.6) ----------
+
+
+def undo(
+    store: Store,
+    *,
+    event_id: int | None = None,
+    clock: Clock,
+    actor: str,
+) -> EventLog:
+    """Reverse a prior reversible operation.
+
+    Dispatch by ``op_type``; each handler uses the stored payload to reconstruct
+    the pre-op state. Forget is not reversible; undo itself is not reversible
+    (no redo in v0); events past ``reversible_until`` are rejected; events
+    already reversed by a prior undo are rejected.
+
+    If ``event_id`` is None, undoes the most recent reversible event by
+    ``actor``.
+    """
+    now = clock.now()
+    target = _resolve_event_to_undo(store, event_id=event_id, actor=actor, now=now)
+
+    op = target.op_type
+    handler = _UNDO_HANDLERS.get(op)
+    if handler is None:
+        raise OperationNotReversibleError(f"no undo handler for op_type {op!r}")
+
+    handler(store, target, now=now, actor=actor)
+
+    return store.append_event_log(
+        EventLog(
+            id=0,
+            op_type=OpType.UNDO.value,
+            payload={"undone_event_id": target.id, "original_op_type": op},
+            actor=actor,
+            affected_entity_ids=target.affected_entity_ids,
+            at=now,
+            reversible_until=None,  # redo not supported in v0
+        )
+    )
+
+
+def _resolve_event_to_undo(
+    store: Store, *, event_id: int | None, actor: str, now: datetime
+) -> EventLog:
+    if event_id is not None:
+        target = store.get_event_log(event_id)
+        if target is None:
+            raise OperationNotReversibleError(f"event {event_id} not found")
+    else:
+        # Scan back for the most recent reversible event by this actor.
+        # Because events_affecting_entity requires an entity_id, we walk all
+        # entities' event lists. For a single-writer store this is O(events);
+        # acceptable for v0.
+        target = _most_recent_reversible_by(store, actor=actor, now=now)
+        if target is None:
+            raise OperationNotReversibleError(f"no reversible events to undo for actor {actor!r}")
+
+    if target.reversible_until is None:
+        raise OperationNotReversibleError(f"event {target.id} is not reversible")
+    if target.reversible_until < now:
+        raise OperationNotReversibleError(
+            f"event {target.id} expired at {target.reversible_until.isoformat()}"
+        )
+    if _already_reversed(store, target):
+        raise OperationNotReversibleError(f"event {target.id} has already been undone")
+    return target
+
+
+def _most_recent_reversible_by(store: Store, *, actor: str, now: datetime) -> EventLog | None:
+    # Walk the FakeStore-style internal list if accessible; otherwise fall back
+    # to scanning via known entity ids from already-seen events (limited).
+    raw_log = getattr(store, "_event_log", None)
+    candidates: list[EventLog] = []
+    if isinstance(raw_log, list):
+        candidates = list(raw_log)
+    else:  # pragma: no cover - production stores expose event_log via query
+        # Production stores should add list_events() to the Protocol if they
+        # need no-event-id undo. For v0, FakeStore and LanceDBStore both expose
+        # an internal log collection.
+        return None
+    reversible = [
+        e
+        for e in candidates
+        if e.actor == actor
+        and e.reversible_until is not None
+        and e.reversible_until >= now
+        and not _already_reversed(store, e)
+        and e.op_type != OpType.UNDO.value
+    ]
+    if not reversible:
+        return None
+    # (at, id) tiebreaker — multiple ops at the same clock tick (e.g. remember
+    # right after label, or the internal label inside relabel) need a stable
+    # order, and the store-assigned id is monotonic.
+    reversible.sort(key=lambda e: (e.at, e.id), reverse=True)
+    return reversible[0]
+
+
+def _already_reversed(store: Store, event: EventLog) -> bool:
+    seen: set[int] = set()
+    for eid in event.affected_entity_ids:
+        for e in store.events_affecting_entity(eid):
+            if e.id in seen:
+                continue
+            seen.add(e.id)
+            if e.op_type == OpType.UNDO.value and e.payload.get("undone_event_id") == event.id:
+                return True
+    return False
+
+
+# ---------- per-op undo handlers ----------
+
+
+def _undo_label(store: Store, event: EventLog, *, now: datetime, actor: str) -> None:
+    payload = event.payload
+    # Close the new bindings created by label
+    for bnd_id in payload.get("new_binding_ids", []):
+        b = store.get_binding(bnd_id)
+        if b is not None and b.valid_to is None:
+            store.close_binding(bnd_id, at=now)
+    # Restore prior bindings — create equivalent new positive bindings
+    for closed_bnd_id in payload.get("closed_binding_ids", []):
+        prior = store.get_binding(closed_bnd_id)
+        if prior is None:
+            continue
+        restored = Binding(
+            id=_make_binding_id(),
+            observation_id=prior.observation_id,
+            entity_id=prior.entity_id,
+            confidence=prior.confidence,
+            method=prior.method,
+            valid_from=now,
+            recorded_at=now,
+            actor=actor,
+            polarity=prior.polarity,
+            valid_to=None,
+        )
+        store.append_binding(restored)
+
+
+def _undo_remember(store: Store, event: EventLog, *, now: datetime, actor: str) -> None:
+    fact_id = event.payload.get("fact_id")
+    if isinstance(fact_id, str):
+        fact = store.get_fact(fact_id)
+        if fact is not None and fact.valid_to is None:
+            store.retract_fact(fact_id, at=now)
+
+
+def _undo_relabel(store: Store, event: EventLog, *, now: datetime, actor: str) -> None:
+    # A relabel is: label() onto a new entity + negative bindings against priors.
+    # Undoing requires closing the new positive + negatives, restoring prior positives.
+    observation_id = event.payload.get("observation_id")
+    new_entity_id = event.payload.get("new_entity_id")
+    prior_entity_ids = event.payload.get("prior_entity_ids", [])
+    negative_binding_ids = event.payload.get("negative_binding_ids", [])
+
+    if not isinstance(observation_id, str):
+        return
+
+    # Close the current positive binding (the label() call inside relabel created it)
+    if isinstance(new_entity_id, str):
+        for b in store.current_positive_bindings(observation_id):
+            if b.entity_id == new_entity_id:
+                store.close_binding(b.id, at=now)
+
+    # Close the negative bindings
+    for neg_id in negative_binding_ids:
+        neg = store.get_binding(neg_id)
+        if neg is not None and neg.valid_to is None:
+            store.close_binding(neg_id, at=now)
+
+    # Restore prior positives — re-attach observation to previous entities
+    for prior_entity_id in prior_entity_ids:
+        restored = Binding(
+            id=_make_binding_id(),
+            observation_id=observation_id,
+            entity_id=prior_entity_id,
+            confidence=1.0,
+            method=Method.USER_LABEL,
+            valid_from=now,
+            recorded_at=now,
+            actor=actor,
+            polarity=Polarity.POSITIVE,
+            valid_to=None,
+        )
+        store.append_binding(restored)
+
+
+def _undo_merge(store: Store, event: EventLog, *, now: datetime, actor: str) -> None:
+    payload = event.payload
+    # Close migrated bindings on the winner
+    for bnd_id in payload.get("opened_binding_ids", []):
+        b = store.get_binding(bnd_id)
+        if b is not None and b.valid_to is None:
+            store.close_binding(bnd_id, at=now)
+
+    # Restore loser bindings (re-attach observations to losers)
+    for closed_bnd_id in payload.get("closed_binding_ids", []):
+        prior = store.get_binding(closed_bnd_id)
+        if prior is None:
+            continue
+        restored = Binding(
+            id=_make_binding_id(),
+            observation_id=prior.observation_id,
+            entity_id=prior.entity_id,
+            confidence=prior.confidence,
+            method=prior.method,
+            valid_from=now,
+            recorded_at=now,
+            actor=actor,
+            polarity=prior.polarity,
+            valid_to=None,
+        )
+        store.append_binding(restored)
+
+    # Restore loser negative bindings that we had closed
+    for neg_id in payload.get("dropped_negative_ids", []):
+        prior = store.get_binding(neg_id)
+        if prior is None:
+            continue
+        restored = Binding(
+            id=_make_binding_id(),
+            observation_id=prior.observation_id,
+            entity_id=prior.entity_id,
+            confidence=prior.confidence,
+            method=prior.method,
+            valid_from=now,
+            recorded_at=now,
+            actor=actor,
+            polarity=Polarity.NEGATIVE,
+            valid_to=None,
+        )
+        store.append_binding(restored)
+
+    # Move facts back to their original entity
+    for fact_id, original_entity_id in payload.get("moved_fact_ids", []):
+        fact = store.get_fact(fact_id)
+        if fact is None:
+            continue
+        store.put_fact(replace(fact, entity_id=original_entity_id, provenance_entity_id=None))
+
+    # Restore collapsed relationships
+    for rel_id in payload.get("collapsed_relationship_ids", []):
+        rel = store.get_relationship(rel_id)
+        if rel is not None and rel.valid_to is not None:
+            store.put_relationship(replace(rel, valid_to=None))
+
+    # Resurrect losers — status back to ACTIVE, clear merged_into_id
+    for loser_id in payload.get("loser_ids", []):
+        loser = store.get_entity(loser_id)
+        if loser is not None and loser.status is Status.MERGED_INTO:
+            store.put_entity(replace(loser, status=Status.ACTIVE, merged_into_id=None))
+
+
+def _undo_split(store: Store, event: EventLog, *, now: datetime, actor: str) -> None:
+    payload = event.payload
+
+    # Close new bindings on split-off entities
+    for bnd_id in payload.get("new_binding_ids", []):
+        b = store.get_binding(bnd_id)
+        if b is not None and b.valid_to is None:
+            store.close_binding(bnd_id, at=now)
+
+    # Close cross-wise negatives
+    for bnd_id in payload.get("cross_negative_ids", []):
+        b = store.get_binding(bnd_id)
+        if b is not None and b.valid_to is None:
+            store.close_binding(bnd_id, at=now)
+
+    # Restore original bindings by re-creating positive bindings on original entity
+    original_entity_id = payload.get("original_entity_id")
+    if isinstance(original_entity_id, str):
+        for closed_bnd_id in payload.get("closed_binding_ids", []):
+            prior = store.get_binding(closed_bnd_id)
+            if prior is None or prior.entity_id != original_entity_id:
+                continue
+            restored = Binding(
+                id=_make_binding_id(),
+                observation_id=prior.observation_id,
+                entity_id=original_entity_id,
+                confidence=prior.confidence,
+                method=prior.method,
+                valid_from=now,
+                recorded_at=now,
+                actor=actor,
+                polarity=prior.polarity,
+                valid_to=None,
+            )
+            store.append_binding(restored)
+
+    # Tombstone split-off entities (groups[1:])
+    group_entity_ids = payload.get("group_entity_ids", [])
+    if original_entity_id and len(group_entity_ids) > 1:
+        for split_off_id in group_entity_ids[1:]:
+            e = store.get_entity(split_off_id)
+            if e is not None and e.status is Status.ACTIVE:
+                store.put_entity(replace(e, status=Status.FORGOTTEN, name="", aliases=()))
+
+
+def _undo_restrict(store: Store, event: EventLog, *, now: datetime, actor: str) -> None:
+    entity_id = event.payload.get("entity_id")
+    from_status = event.payload.get("from_status")
+    if isinstance(entity_id, str) and isinstance(from_status, str):
+        entity = store.get_entity(entity_id)
+        if entity is not None:
+            store.put_entity(replace(entity, status=Status(from_status)))
+
+
+_UNDO_HANDLERS: dict[str, Any] = {
+    OpType.LABEL.value: _undo_label,
+    OpType.REMEMBER.value: _undo_remember,
+    OpType.RELABEL.value: _undo_relabel,
+    OpType.MERGE.value: _undo_merge,
+    OpType.SPLIT.value: _undo_split,
+    OpType.RESTRICT.value: _undo_restrict,
+    OpType.UNRESTRICT.value: _undo_restrict,
+}

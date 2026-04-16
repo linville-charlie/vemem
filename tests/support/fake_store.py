@@ -88,6 +88,12 @@ class FakeStore:
                 return
         raise KeyError(f"binding {binding_id} not open or not found")
 
+    def get_binding(self, binding_id: str) -> Binding | None:
+        for b in self._bindings:
+            if b.id == binding_id:
+                return b
+        return None
+
     def current_positive_bindings(self, observation_id: str) -> list[Binding]:
         return [
             b
@@ -110,6 +116,9 @@ class FakeStore:
 
     def put_fact(self, fact: Fact) -> None:
         self._facts[fact.id] = fact
+
+    def get_fact(self, fact_id: str) -> Fact | None:
+        return self._facts.get(fact_id)
 
     def retract_fact(self, fact_id: str, at: datetime) -> None:
         fact = self._facts.get(fact_id)
@@ -134,6 +143,9 @@ class FakeStore:
 
     def put_relationship(self, rel: Relationship) -> None:
         self._relationships[rel.id] = rel
+
+    def get_relationship(self, relationship_id: str) -> Relationship | None:
+        return self._relationships.get(relationship_id)
 
     def relationships_for_entity(
         self, entity_id: str, *, active_only: bool = True
