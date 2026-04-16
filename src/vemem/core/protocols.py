@@ -108,7 +108,15 @@ class Store(Protocol):
     ) -> list[Relationship]: ...
 
     # ---- write: event log (§3.7) ----
-    def append_event_log(self, event: EventLog) -> int: ...
+    def append_event_log(self, event: EventLog) -> EventLog:
+        """Persist an event and return it with the store-assigned id.
+
+        The ``event.id`` field of the input is ignored; the store assigns a
+        monotonic id and returns the full row so ops can reference the new id
+        without a follow-up fetch.
+        """
+        ...
+
     def get_event_log(self, event_id: int) -> EventLog | None: ...
     def events_affecting_entity(self, entity_id: str) -> list[EventLog]: ...
 
