@@ -174,6 +174,15 @@ class FakeStore:
     def events_affecting_entity(self, entity_id: str) -> list[EventLog]:
         return [e for e in self._event_log if entity_id in e.affected_entity_ids]
 
+    def list_events(
+        self, *, actor: str | None = None, since: datetime | None = None
+    ) -> list[EventLog]:
+        return [
+            e
+            for e in self._event_log
+            if (actor is None or e.actor == actor) and (since is None or e.at >= since)
+        ]
+
     # ---- vector search ----
 
     def search_embeddings(

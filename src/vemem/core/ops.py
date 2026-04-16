@@ -1101,22 +1101,11 @@ def _resolve_event_to_undo(
 
 
 def _most_recent_reversible_by(store: Store, *, actor: str, now: datetime) -> EventLog | None:
-    # Walk the FakeStore-style internal list if accessible; otherwise fall back
-    # to scanning via known entity ids from already-seen events (limited).
-    raw_log = getattr(store, "_event_log", None)
-    candidates: list[EventLog] = []
-    if isinstance(raw_log, list):
-        candidates = list(raw_log)
-    else:  # pragma: no cover - production stores expose event_log via query
-        # Production stores should add list_events() to the Protocol if they
-        # need no-event-id undo. For v0, FakeStore and LanceDBStore both expose
-        # an internal log collection.
-        return None
+    candidates = store.list_events(actor=actor)
     reversible = [
         e
         for e in candidates
-        if e.actor == actor
-        and e.reversible_until is not None
+        if e.reversible_until is not None
         and e.reversible_until >= now
         and not _already_reversed(store, e)
         and e.op_type != OpType.UNDO.value

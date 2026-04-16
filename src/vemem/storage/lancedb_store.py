@@ -429,6 +429,22 @@ class LanceDBStore:
         result.sort(key=lambda e: e.id)
         return result
 
+    def list_events(
+        self, *, actor: str | None = None, since: datetime | None = None
+    ) -> list[EventLog]:
+        table = self._db.open_table(EVENT_LOG_TABLE)
+        arr = table.to_arrow()
+        result: list[EventLog] = []
+        for row in arr.to_pylist():
+            event = _row_to_event_log(row)
+            if actor is not None and event.actor != actor:
+                continue
+            if since is not None and event.at < since:
+                continue
+            result.append(event)
+        result.sort(key=lambda e: e.id)
+        return result
+
     # ---- vector search -----------------------------------------------------
 
     def search_embeddings(

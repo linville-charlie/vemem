@@ -123,6 +123,17 @@ class Store(Protocol):
     def get_event_log(self, event_id: int) -> EventLog | None: ...
     def events_affecting_entity(self, entity_id: str) -> list[EventLog]: ...
 
+    def list_events(
+        self, *, actor: str | None = None, since: datetime | None = None
+    ) -> list[EventLog]:
+        """Return EventLog rows optionally filtered by ``actor`` or ``since`` (``at >= since``).
+
+        Used by undo-without-event-id to find the most recent reversible event
+        by the caller. Must be supported by every Store impl — do not rely on
+        implementation-specific attribute access.
+        """
+        ...
+
     # ---- read: vector search (§4.0) ----
     def search_embeddings(
         self, *, encoder_id: str, vector: tuple[float, ...], k: int
