@@ -907,21 +907,8 @@ def export(
             continue
         observations.append(_observation_dict(obs))
         if include_embeddings:
-            # FakeStore doesn't expose a public "embeddings for observation" query,
-            # so skip if the Store impl can't produce one — production impls do.
-            get_embs = getattr(store, "embeddings_for_observation", None)
-            if callable(get_embs):
-                for emb in get_embs(oid):
-                    embeddings.append(_embedding_dict(emb))
-
-    # If include_embeddings but store doesn't have the optional method, fall back
-    # to scanning any attribute-exposed embedding cache (FakeStore keeps a dict).
-    if include_embeddings and not embeddings:
-        cache = getattr(store, "_embeddings", None)
-        if isinstance(cache, dict):
-            for emb in cache.values():
-                if emb.observation_id in observation_ids:
-                    embeddings.append(_embedding_dict(emb))
+            for emb in store.embeddings_for_observation(oid):
+                embeddings.append(_embedding_dict(emb))
 
     facts = [_fact_dict(f) for f in store.facts_for_entity(entity_id, active_only=False)]
     events = [_event_dict(e) for e in store.events_for_entity(entity_id)]

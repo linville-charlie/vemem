@@ -200,6 +200,17 @@ class LanceDBStore:
         row = arr.to_pylist()[0]
         return _row_to_observation(row)
 
+    def embeddings_for_observation(self, observation_id: str) -> list[Embedding]:
+        # Scan every registered encoder's embeddings table — an observation may
+        # carry vectors from multiple encoders (spec §3.1a).
+        result: list[Embedding] = []
+        for encoder_id, table_name in self._encoder_tables.items():
+            table = self._db.open_table(table_name)
+            arr = table.search().where(f"observation_id = '{observation_id}'").limit(100).to_arrow()
+            for row in arr.to_pylist():
+                result.append(_row_to_embedding(row, encoder_id))
+        return result
+
     def put_embedding(self, emb: Embedding) -> None:
         table_name = self._ensure_encoder_table(emb.encoder_id, emb.dim)
         table = self._db.open_table(table_name)
@@ -599,6 +610,18 @@ def _row_to_observation(row: dict[str, Any]) -> Observation:
         detected_at=_as_utc(row["detected_at"]),
         source_ts=_as_utc(row["source_ts"]) if row["source_ts"] is not None else None,
         source_frame=row["source_frame"],
+    )
+
+
+def _row_to_embedding(row: dict[str, Any], encoder_id: str) -> Embedding:
+    return Embedding(
+        id=row["id"],
+        observation_id=row["observation_id"],
+        encoder_id=encoder_id,
+        vector=tuple(float(x) for x in row["vector"]),
+        dim=row["dim"],
+        created_at=_as_utc(row["created_at"]),
+        key_id=row.get("key_id"),
     )
 
 

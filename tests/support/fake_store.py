@@ -60,6 +60,9 @@ class FakeStore:
     def get_observation(self, observation_id: str) -> Observation | None:
         return self._observations.get(observation_id)
 
+    def embeddings_for_observation(self, observation_id: str) -> list[Embedding]:
+        return [e for e in self._embeddings.values() if e.observation_id == observation_id]
+
     # ---- entities ----
 
     def put_entity(self, entity: Entity) -> None:
