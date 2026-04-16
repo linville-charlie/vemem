@@ -34,6 +34,7 @@ dependencies = [
     "onnxruntime>=1.20",
     "open_clip_torch>=2.30",
     "pillow>=11",
+    "mcp>=1.12",
 ]
 
 [project.urls]
@@ -104,6 +105,8 @@ module = [
     "PIL.*",
     "torch",
     "torch.*",
+    "mcp",
+    "mcp.*",
 ]
 ignore_missing_imports = true
 

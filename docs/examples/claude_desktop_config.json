@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "vemem": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/absolute/path/to/visual_entity_memory",
+        "run",
+        "python",
+        "-m",
+        "vemem.mcp_server"
+      ],
+      "env": {
+        "VEMEM_HOME": "/absolute/path/to/your/vemem/data"
+      }
+    }
+  }
+}
