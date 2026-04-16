@@ -191,9 +191,9 @@ The read-path bridge. Does not mutate state.
 - Emit `EventLog{op=label, payload={observation_ids, entity_id, prior_binding_ids}}`.
 
 **Ambiguity rules:**
-- If the observations span multiple modalities, reject with `ModalityMismatch`.
+- If the observations span multiple modalities, reject with `ModalityMismatchError`.
 - If some observations are already bound to a different entity (user previously labeled them as something else), `label()` is equivalent to `relabel()` for those observations — the library does NOT silently merge the two entities. Emit both positive (to new target) and negative (against old entity) bindings.
-- If `entity_name_or_id` refers to a `forgotten` or `merged_into` entity, reject with `EntityUnavailable`.
+- If `entity_name_or_id` refers to a `forgotten` or `merged_into` entity, reject with `EntityUnavailableError`.
 
 Reversible by recreating prior bindings from the payload.
 
@@ -208,8 +208,8 @@ Sugar for `label` of a single observation onto a different entity, PLUS a `negat
 "These are the same."
 
 - Pick a `winner` (kept) and `losers`. Default `keep="oldest"`.
-- **Modality check:** reject with `ModalityMismatch` if not all entities share the same `modality`.
-- **Kind check:** reject with `KindMismatch` if mixing `instance` and `type`. The library suggests using `instance_of` instead.
+- **Modality check:** reject with `ModalityMismatchError` if not all entities share the same `modality`.
+- **Kind check:** reject with `KindMismatchError` if mixing `instance` and `type`. The library suggests using `instance_of` instead.
 - For each current positive binding on a loser: close it (`valid_to=now`) and open an equivalent binding on the winner (`method=migrated`, same observation, `valid_from=now`).
 - **Negative bindings on losers are dropped**, not migrated. They asserted "obs X is not loser Y" — after merge that would become "obs X is not winner W," but X has no negative relationship to W's *other* observations, so the assertion doesn't transfer cleanly. Closing them on the loser (valid_to=now) preserves history without making false claims.
 - Move all `Fact / Event / Relationship` rows: update `entity_id → winner_id`, set `provenance_entity_id = loser_id` to preserve origin.
