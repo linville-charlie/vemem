@@ -30,6 +30,10 @@ dependencies = [
     "lancedb>=0.19,<0.20",
     "pyarrow>=18",
     "numpy>=2",
+    "insightface>=0.7",
+    "onnxruntime>=1.20",
+    "open_clip_torch>=2.30",
+    "pillow>=11",
 ]
 
 [project.urls]
@@ -85,9 +89,27 @@ disallow_incomplete_defs = false
 # Third-party libs without py.typed — silence import-untyped so strict mypy
 # doesn't drown in noise on external deps.
 [[tool.mypy.overrides]]
-module = ["lancedb", "lancedb.*", "pyarrow", "pyarrow.*"]
+module = [
+    "lancedb",
+    "lancedb.*",
+    "pyarrow",
+    "pyarrow.*",
+    "insightface",
+    "insightface.*",
+    "onnxruntime",
+    "onnxruntime.*",
+    "open_clip",
+    "open_clip.*",
+    "PIL",
+    "PIL.*",
+    "torch",
+    "torch.*",
+]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
+markers = [
+    "integration: slow tests requiring model weights (set VEMEM_RUN_INTEGRATION=1 to run)",
+]
