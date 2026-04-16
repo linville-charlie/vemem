@@ -2776,7 +2776,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "insightface", specifier = ">=0.7" },
-    { name = "lancedb", specifier = ">=0.19,<0.20" },
+    { name = "lancedb", specifier = ">=0.19" },
     { name = "mcp", specifier = ">=1.12" },
     { name = "numpy", specifier = ">=2" },
     { name = "onnxruntime", specifier = ">=1.20" },

@@ -3,9 +3,9 @@
 ``vemem.core.ops`` has no opinions about images — it operates on already-built
 ``Observation`` + ``Embedding`` domain objects. Real callers (the MCP server,
 the CLI, the bridge example) all follow the same recipe to turn raw bytes
-into those objects: hash the image, run the detector for bboxes, run the
-encoder for a vector, assemble an ``Observation`` with a deterministic
-content-hash id, attach the embedding, and persist.
+into those objects: hash the image, run the detector for bboxes, **crop each
+bbox region**, run the encoder on the crop, assemble an ``Observation`` with
+a deterministic content-hash id, attach the embedding, and persist.
 
 This module is that recipe in one place so all three callers don't drift.
 """
@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 from vemem.core.enums import Modality
 from vemem.core.ids import new_id
 from vemem.core.types import Embedding, Observation, observation_id_for
+from vemem.encoders.crop import crop_image
 
 if TYPE_CHECKING:
     from vemem.core.protocols import Clock, Detector, Encoder, Store
@@ -42,11 +43,13 @@ def observe_image(
     emitted them. Observation ids are content-addressed (spec §3.1) so
     re-observing identical bytes returns existing rows idempotently.
 
-    **Encoder input**: the current face-first encoders (InsightFace) run
-    internal detection + alignment on whatever bytes they get, so we hand
-    them the FULL image and let them re-find the face rather than pre-cropping
-    per bbox. A strict Encoder impl that expects a pre-cropped face would
-    need to crop first; left as an encoder-level policy.
+    Each detected region is **cropped before encoding** so the encoder
+    receives only the relevant face/object — not the full frame. This is
+    load-bearing for encoder-agnosticism: InsightFace does internal re-
+    detection and works with full images too, but CLIP and other encoders
+    would embed the entire frame rather than the detected region, producing
+    garbage identity vectors. Crop-then-encode is the strictly correct
+    contract.
 
     ``source_uri`` is an opaque reference the library never fetches (spec
     §3.1b); if ``None``, we fall back to ``hash:<sha256>``.
@@ -75,7 +78,8 @@ def observe_image(
         else:
             obs = existing
 
-        vector = encoder.embed(image_bytes)
+        crop_bytes = crop_image(image_bytes, bbox)
+        vector = encoder.embed(crop_bytes)
         store.put_embedding(
             Embedding(
                 id="emb_" + new_id(),

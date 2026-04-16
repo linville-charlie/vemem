@@ -26,6 +26,7 @@ Design notes:
 from __future__ import annotations
 
 import base64
+import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,7 +42,7 @@ from vemem.mcp_server.serialization import (
     recall_snapshot_to_dict,
 )
 
-DEFAULT_ACTOR = "mcp:unknown"
+DEFAULT_ACTOR = os.environ.get("VEMEM_MCP_ACTOR", "mcp:unknown")
 
 
 @dataclass

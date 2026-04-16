@@ -12,6 +12,9 @@ Environment variables:
 - ``VEMEM_HOME`` — directory for the LanceDB dataset. Default: ``~/.vemem``.
 - ``VEMEM_ENCODER`` — which encoder to load. Currently only ``insightface``
   (default) is wired; anything else produces a lazy-failure encoder.
+- ``VEMEM_MCP_ACTOR`` — override the default actor string written to EventLog
+  entries. Default: ``mcp:unknown``. MCP clients don't forward a user principal,
+  so set this per-deployment (e.g. ``mcp:alice``) for meaningful audit trails.
 - ``VEMEM_MCP_TEST_MODE`` — ``1`` swaps the real store + encoder for the
   in-memory FakeStore and a deterministic stub encoder/detector. Used by the
   integration test to roundtrip JSON-RPC messages without downloading weights.

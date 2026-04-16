@@ -6,7 +6,8 @@ the repo installed via `uv sync`.
 
 | File | What it shows |
 |---|---|
-| [`bridge.py`](./bridge.py) | End-to-end Python integration: VLM describes a scene → vemem resolves identity → LLM gets prompt-ready context. Runs standalone with fake VLM/LLM stubs. |
+| [`bridge.py`](./bridge.py) | End-to-end Python integration with **stub** VLM/LLM — shows the shape without real models. |
+| [`real_bridge.md`](./real_bridge.md) | **Copy-paste recipes** for Ollama, OpenAI, and Claude with real models. Also covers corrections, the 30-day undo window, source-image linking, and MCP actor attribution. |
 | [`mcp_usage.md`](./mcp_usage.md) | Using the vemem MCP server from any MCP-capable client, with a JSON-RPC walkthrough of every tool. |
 | [`claude_desktop_config.json`](./claude_desktop_config.json) | Ready-to-paste Claude Desktop configuration for the vemem MCP server. |
 | [`cli_tour.md`](./cli_tour.md) | Guided walkthrough of the `vm` console script — observe, label, remember, identify, undo, forget. |
