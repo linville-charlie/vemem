@@ -199,5 +199,7 @@ labeling + CLI for one-off `vm forget`).
 ## Further reading
 
 - Spec (load-bearing): [`../spec/identity-semantics.md`](../spec/identity-semantics.md)
+- Architecture overview: [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
 - V0 implementation plan: [`../plan/v0-implementation.md`](../plan/v0-implementation.md)
-- Compliance checklist (if you deploy): [`../../COMPLIANCE.md`](../../COMPLIANCE.md) *(coming in Wave 4)*
+- Compliance checklist (if you deploy): [`../../COMPLIANCE.md`](../../COMPLIANCE.md)
+- Security disclosure: [`../../SECURITY.md`](../../SECURITY.md)

@@ -10,9 +10,12 @@ Pre-alpha. v0 implements the full op surface from [`docs/spec/identity-semantics
 
 | | |
 |---|---|
+| Docs index | [`docs/README.md`](./docs/README.md) |
+| Architecture | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) |
 | Spec | [`docs/spec/identity-semantics.md`](./docs/spec/identity-semantics.md) |
 | Plan | [`docs/plan/v0-implementation.md`](./docs/plan/v0-implementation.md) |
 | Examples | [`docs/examples/`](./docs/examples/) — MCP config, OpenAI tools, CLI tour, bridge.py |
+| Changelog | [`CHANGELOG.md`](./CHANGELOG.md) |
 | Compliance | [`COMPLIANCE.md`](./COMPLIANCE.md) |
 | Security | [`SECURITY.md`](./SECURITY.md) |
 | Contributing | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
