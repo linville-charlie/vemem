@@ -52,9 +52,8 @@ from datetime import UTC, datetime
 
 from vemem.core import ops
 from vemem.core.enums import Modality, Source
-from vemem.core.ids import new_id
 from vemem.core.protocols import Clock, Detector, Encoder, Store
-from vemem.core.types import Candidate, Embedding, Observation, observation_id_for
+from vemem.core.types import Candidate, Observation
 
 # ---------------------------------------------------------------------------
 # Fake VLM — describes an image in natural language.
@@ -162,43 +161,22 @@ class Bridge:
     ) -> list[Observation]:
         """Detect, embed, and persist. Also asks the VLM for a scene note.
 
-        Observations are content-addressed (spec §3.1), so re-observing the
-        same bytes returns the same ids.
+        Thin wrapper around :func:`vemem.pipeline.observe_image` — that helper
+        is the shared recipe the MCP server and CLI use too. Observations are
+        content-addressed (spec §3.1), so re-observing the same bytes returns
+        the same ids.
         """
-        now = self.clock.now()
-        source_hash = hashlib.sha256(image_bytes).hexdigest()
-        bboxes = self.detector.detect(image_bytes)
+        from vemem.pipeline import observe_image
 
-        observations: list[Observation] = []
-        for bbox in bboxes:
-            obs_id = observation_id_for(source_hash, bbox, self.detector.id)
-            existing = self.store.get_observation(obs_id)
-            if existing is None:
-                obs = Observation(
-                    id=obs_id,
-                    source_uri=source_uri,
-                    source_hash=source_hash,
-                    bbox=bbox,
-                    detector_id=self.detector.id,
-                    modality=modality,
-                    detected_at=now,
-                )
-                self.store.put_observation(obs)
-            else:
-                obs = existing
-            observations.append(obs)
-
-            vector = self.encoder.embed(image_bytes)
-            self.store.put_embedding(
-                Embedding(
-                    id="emb_" + new_id(),
-                    observation_id=obs.id,
-                    encoder_id=self.encoder.id,
-                    vector=vector,
-                    dim=self.encoder.dim,
-                    created_at=now,
-                )
-            )
+        observations = observe_image(
+            self.store,
+            image_bytes=image_bytes,
+            detector=self.detector,
+            encoder=self.encoder,
+            clock=self.clock,
+            modality=modality,
+            source_uri=source_uri,
+        )
 
         # Free-text VLM note. Stored as a bridge-level "seen" record in-memory
         # on the Bridge — we intentionally do NOT attach it to an entity,

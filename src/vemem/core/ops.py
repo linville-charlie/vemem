@@ -33,7 +33,7 @@ from vemem.core.errors import (
     OperationNotReversibleError,
 )
 from vemem.core.ids import new_id
-from vemem.core.types import Binding, Candidate, Entity, EventLog, Fact
+from vemem.core.types import Binding, Candidate, Entity, Event, EventLog, Fact, Relationship
 
 if TYPE_CHECKING:
     from vemem.core.protocols import Clock, Store
@@ -44,10 +44,17 @@ DEFAULT_MIN_CONFIDENCE = 0.5
 
 @dataclass(frozen=True, slots=True)
 class RecallSnapshot:
-    """Return value of ``recall()`` — an entity plus its active knowledge."""
+    """Return value of ``recall()`` — an entity plus its active knowledge.
+
+    Facts, events, and relationships are all active-only. Retracted facts
+    and relationships (``valid_to`` set) are excluded; pass ``active_only=False``
+    to ``recall()`` to see them.
+    """
 
     entity: Entity
     facts: tuple[Fact, ...]
+    events: tuple[Event, ...] = ()
+    relationships: tuple[Relationship, ...] = ()
 
 
 # ---------- internal helpers ----------
@@ -146,12 +153,14 @@ def identify(
     for data in per_entity.values():
         entity = data["entity"]  # type: ignore[assignment]
         assert isinstance(entity, Entity)
+        facts = tuple(store.facts_for_entity(entity.id, active_only=True))
         candidates.append(
             Candidate(
                 entity=entity,
                 confidence=float(data["confidence"]),  # type: ignore[arg-type]
                 matched_observation_ids=tuple(data["obs"]),  # type: ignore[arg-type]
                 method=data["method"],  # type: ignore[arg-type]
+                facts=facts,
             )
         )
 
@@ -321,14 +330,30 @@ def remember(
     return fact
 
 
-def recall(store: Store, *, entity_id: str) -> RecallSnapshot:
-    """Return the entity plus its currently-active facts."""
+def recall(
+    store: Store,
+    *,
+    entity_id: str,
+    active_only: bool = True,
+) -> RecallSnapshot:
+    """Return the entity plus its knowledge (facts, events, relationships).
+
+    ``active_only=True`` (default) hides retracted facts and relationships;
+    pass ``False`` to include the full bi-temporal history.
+    """
     entity = store.get_entity(entity_id)
     if entity is None:
         raise EntityUnavailableError(f"entity {entity_id} not found")
 
-    facts = store.facts_for_entity(entity_id, active_only=True)
-    return RecallSnapshot(entity=entity, facts=tuple(facts))
+    facts = store.facts_for_entity(entity_id, active_only=active_only)
+    events = store.events_for_entity(entity_id)
+    relationships = store.relationships_for_entity(entity_id, active_only=active_only)
+    return RecallSnapshot(
+        entity=entity,
+        facts=tuple(facts),
+        events=tuple(events),
+        relationships=tuple(relationships),
+    )
 
 
 # ---------- relabel (§4.2) ----------

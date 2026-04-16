@@ -301,6 +301,72 @@ def test_recall_returns_active_facts_for_entity() -> None:
     assert {f.content for f in snapshot.facts} == {"runs marathons", "works at Acme"}
 
 
+def test_identify_populates_candidate_facts() -> None:
+    store, clock = _fresh()
+    obs = _put_face_obs(store, clock, vector=(1.0, 0.0, 0.0))
+    entity = label(store, [obs.id], "Charlie", clock=clock, actor="user:alice")
+    remember(
+        store,
+        entity_id=entity.id,
+        content="runs marathons",
+        source=Source.USER,
+        clock=clock,
+        actor="user:alice",
+    )
+
+    results = identify(
+        store,
+        encoder_id="insightface/arcface@0.7.3",
+        vector=(1.0, 0.0, 0.0),
+        k=1,
+    )
+    assert len(results) == 1
+    assert len(results[0].facts) == 1
+    assert results[0].facts[0].content == "runs marathons"
+
+
+def test_recall_includes_events_and_relationships() -> None:
+    store, clock = _fresh()
+    obs = _put_face_obs(store, clock)
+    charlie = label(store, [obs.id], "Charlie", clock=clock, actor="user:alice")
+
+    # Attach an event
+    from vemem.core.ids import new_id
+    from vemem.core.types import Event, Relationship
+
+    store.put_event(
+        Event(
+            id="evt_" + new_id(),
+            entity_id=charlie.id,
+            content="met in kitchen",
+            source=Source.USER,
+            occurred_at=clock.now(),
+            recorded_at=clock.now(),
+        )
+    )
+    # And a relationship
+    other = label(store, [], "Acme Inc", clock=clock, actor="user:alice")
+    _ = other  # silence unused in this shape
+    store.put_relationship(
+        Relationship(
+            id="rel_" + new_id(),
+            from_entity_id=charlie.id,
+            to_entity_id=other.id,
+            relation_type="works_at",
+            source=Source.USER,
+            valid_from=clock.now(),
+            recorded_at=clock.now(),
+        )
+    )
+
+    snapshot = recall(store, entity_id=charlie.id)
+
+    assert len(snapshot.events) == 1
+    assert snapshot.events[0].content == "met in kitchen"
+    assert len(snapshot.relationships) == 1
+    assert snapshot.relationships[0].relation_type == "works_at"
+
+
 def test_remember_rejects_forgotten_entity() -> None:
     store, clock = _fresh()
     obs = _put_face_obs(store, clock)

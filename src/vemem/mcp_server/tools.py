@@ -26,15 +26,13 @@ Design notes:
 from __future__ import annotations
 
 import base64
-import hashlib
 from dataclasses import dataclass
 from typing import Any
 
 from vemem.core import ops
 from vemem.core.enums import Modality, Source
-from vemem.core.ids import new_id
 from vemem.core.protocols import Clock, Detector, Encoder, Store
-from vemem.core.types import Embedding, Observation, observation_id_for
+from vemem.core.types import Observation
 from vemem.mcp_server.serialization import (
     candidate_to_dict,
     entity_to_dict,
@@ -91,51 +89,19 @@ def _ingest_image(
     source_uri: str,
     modality: Modality,
 ) -> list[Observation]:
-    """Detect faces in ``image_bytes``, persist Observation + Embedding per face.
+    """Delegate to ``vemem.pipeline.observe_image`` — the shared recipe."""
+    from vemem.pipeline import observe_image  # local import avoids cycle at module load
 
-    Returns the list of Observation records that were created or matched
-    (observation ids are content-addressed, so re-ingesting the same image is
-    idempotent). Embeddings are appended once per (observation, encoder) pair.
-    """
     encoder, detector = ctx.require_image_pipeline()
-    now = ctx.clock.now()
-    source_hash = hashlib.sha256(image_bytes).hexdigest()
-
-    bboxes = detector.detect(image_bytes)
-    observations: list[Observation] = []
-    for bbox in bboxes:
-        obs_id = observation_id_for(source_hash, bbox, detector.id)
-        existing = ctx.store.get_observation(obs_id)
-        if existing is None:
-            obs = Observation(
-                id=obs_id,
-                source_uri=source_uri,
-                source_hash=source_hash,
-                bbox=bbox,
-                detector_id=detector.id,
-                modality=modality,
-                detected_at=now,
-            )
-            ctx.store.put_observation(obs)
-        else:
-            obs = existing
-        observations.append(obs)
-
-        # Embed the full image for now — cropping is a detector refinement.
-        # InsightFace's pipeline does its own crop + align internally when we
-        # hand it the full frame.
-        vector = encoder.embed(image_bytes)
-        emb = Embedding(
-            id="emb_" + new_id(),
-            observation_id=obs.id,
-            encoder_id=encoder.id,
-            vector=vector,
-            dim=encoder.dim,
-            created_at=now,
-        )
-        ctx.store.put_embedding(emb)
-
-    return observations
+    return observe_image(
+        ctx.store,
+        image_bytes=image_bytes,
+        detector=detector,
+        encoder=encoder,
+        clock=ctx.clock,
+        modality=modality,
+        source_uri=source_uri,
+    )
 
 
 # ---------- core identity ----------
