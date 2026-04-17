@@ -26,12 +26,18 @@ import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 
 type PluginConfig = {
-  vememDir?: string;
-  vememHome?: string;
+  vememDir?: string;       // absolute path to a clone of the vemem repo (dev mode)
+  vememHome?: string;      // absolute path where LanceDB data lives
+  sidecarCommand?: string; // explicit executable, overrides vememDir/pip detection
   sidecarHost?: string;
   sidecarPort?: number;
   warmupTimeoutSeconds?: number;
   requestTimeoutSeconds?: number;
+};
+
+type ResolvedConfig = Required<Omit<PluginConfig, "vememDir" | "sidecarCommand">> & {
+  spawnCommand: string;
+  spawnArgs: string[];
 };
 
 const NON_PATH_DEFAULTS = {
@@ -41,32 +47,32 @@ const NON_PATH_DEFAULTS = {
   requestTimeoutSeconds: 30,
 };
 
-class VememBridgeConfigError extends Error {}
-
-function pickConfig(raw: unknown): Required<PluginConfig> {
+function pickConfig(raw: unknown): ResolvedConfig {
   const cfg = (raw ?? {}) as PluginConfig;
-  // vememDir and vememHome have no reasonable cross-machine defaults. Fail
-  // loudly at register time rather than silently pointing at someone else's
-  // filesystem.
-  if (!cfg.vememDir) {
-    throw new VememBridgeConfigError(
-      "vemem-bridge: missing required config.vememDir — set it to the absolute " +
-        "path of your cloned vemem repo (the directory containing pyproject.toml).",
-    );
-  }
-  if (!cfg.vememHome) {
-    throw new VememBridgeConfigError(
-      "vemem-bridge: missing required config.vememHome — set it to the absolute " +
-        "path where LanceDB should live (e.g. ~/.vemem or a dir under your agent state).",
-    );
+  // Three ways to launch the sidecar, in priority order:
+  //   1. explicit sidecarCommand  — escape hatch for weird setups
+  //   2. vememDir                  — dev mode: run against a repo checkout via `uv`
+  //   3. vemem-openclaw-sidecar    — released mode: `pip install vemem` put it on PATH
+  let spawnCommand: string;
+  let spawnArgs: string[];
+  if (cfg.sidecarCommand) {
+    spawnCommand = cfg.sidecarCommand;
+    spawnArgs = [];
+  } else if (cfg.vememDir) {
+    spawnCommand = "uv";
+    spawnArgs = ["--directory", cfg.vememDir, "run", "vemem-openclaw-sidecar"];
+  } else {
+    spawnCommand = "vemem-openclaw-sidecar";
+    spawnArgs = [];
   }
   return {
-    vememDir: cfg.vememDir,
-    vememHome: cfg.vememHome,
+    vememHome: cfg.vememHome || "", // empty → sidecar falls back to VEMEM_HOME env / ~/.vemem
     sidecarHost: cfg.sidecarHost || NON_PATH_DEFAULTS.sidecarHost,
     sidecarPort: cfg.sidecarPort || NON_PATH_DEFAULTS.sidecarPort,
     warmupTimeoutSeconds: cfg.warmupTimeoutSeconds || NON_PATH_DEFAULTS.warmupTimeoutSeconds,
     requestTimeoutSeconds: cfg.requestTimeoutSeconds || NON_PATH_DEFAULTS.requestTimeoutSeconds,
+    spawnCommand,
+    spawnArgs,
   };
 }
 
@@ -99,16 +105,7 @@ async function waitForHealth(
 const plugin = {
   id: "vemem-bridge",
   register(api: OpenClawPluginApi) {
-    let cfg: Required<PluginConfig>;
-    try {
-      cfg = pickConfig(api.pluginConfig);
-    } catch (err) {
-      if (err instanceof VememBridgeConfigError) {
-        api.logger.error(`[vemem-bridge] ${err.message}`);
-        return; // refuse to start; host keeps running without vemem
-      }
-      throw err;
-    }
+    const cfg = pickConfig(api.pluginConfig);
     const log = (msg: string) => api.logger.info(`[vemem-bridge] ${msg}`);
     const warn = (msg: string) => api.logger.warn(`[vemem-bridge] ${msg}`);
     const error = (msg: string) => api.logger.error(`[vemem-bridge] ${msg}`);
@@ -119,6 +116,14 @@ const plugin = {
     // The plugin can be loaded by multiple subsystems (gateway + plugins runtime)
     // in the same process — don't race to bind the port. Probe /health first and
     // reuse an already-running sidecar.
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      HOME: process.env.HOME || homedir(),
+      VEMEM_HTTP_HOST: cfg.sidecarHost,
+      VEMEM_HTTP_PORT: String(cfg.sidecarPort),
+    };
+    if (cfg.vememHome) env.VEMEM_HOME = cfg.vememHome;
+
     const maybeSpawn = async () => {
       try {
         const probe = await fetch(`${baseUrl}/health`, { method: "POST", body: "{}" });
@@ -129,21 +134,19 @@ const plugin = {
       } catch {
         // not up; spawn one below
       }
-      log(`spawning sidecar: uv --directory ${cfg.vememDir} run python bridges/vemem_http.py`);
-      sidecar = spawn(
-        "uv",
-        ["--directory", cfg.vememDir, "run", "python", "bridges/vemem_http.py"],
-        {
-          env: {
-            ...process.env,
-            HOME: process.env.HOME || homedir(),
-            VEMEM_HOME: cfg.vememHome,
-            VEMEM_HTTP_HOST: cfg.sidecarHost,
-            VEMEM_HTTP_PORT: String(cfg.sidecarPort),
-          },
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
+      const cmdLine = [cfg.spawnCommand, ...cfg.spawnArgs].join(" ");
+      log(`spawning sidecar: ${cmdLine}`);
+      sidecar = spawn(cfg.spawnCommand, cfg.spawnArgs, {
+        env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      sidecar.on("error", (err) => {
+        error(
+          `failed to spawn sidecar (${cfg.spawnCommand}): ${err.message}. ` +
+            "Install vemem (`pip install vemem`) to get `vemem-openclaw-sidecar` " +
+            "on PATH, or set config.vememDir to your vemem repo for dev mode.",
+        );
+      });
       sidecar.stderr?.on("data", (b: Buffer) => {
         for (const line of b.toString("utf8").split("\n")) {
           if (line.trim()) log(`sidecar: ${line.trim()}`);

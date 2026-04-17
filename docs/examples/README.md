@@ -11,7 +11,8 @@ the repo installed via `uv sync`.
 | [`claude_desktop_config.json`](./claude_desktop_config.json) | Ready-to-paste Claude Desktop configuration for the vemem MCP server. |
 | [`cli_tour.md`](./cli_tour.md) | Guided walkthrough of the `vm` console script — observe, label, remember, identify, undo, forget. |
 | [`openai_tools.md`](./openai_tools.md) | Using the OpenAI-compatible tool schemas (`vm export-tools`) for function-calling agents (OpenAI, Groq, together.ai, Ollama in tools mode). |
-| [`openclaw-plugin/`](./openclaw-plugin/) | Drop-in TypeScript plugin for [openclaw](https://openclaw.dev) that registers vemem as the host's automatic image-description provider — every image attachment is transparently described through vemem before the LLM sees it, mem0-style. Spawns the [`bridges/vemem_http.py`](../../bridges/vemem_http.py) sidecar on load. |
+
+For the [openclaw](https://openclaw.dev) integration, see the top-level [`integrations/openclaw/`](../../integrations/openclaw/) — it's a first-party supported host, not an example.
 
 ## Quick start
 

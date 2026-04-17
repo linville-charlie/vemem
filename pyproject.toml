@@ -41,6 +41,7 @@ dependencies = [
 
 [project.scripts]
 vm = "vemem.cli.app:main"
+vemem-openclaw-sidecar = "vemem.integrations.openclaw.sidecar:main"
 
 [project.urls]
 Homepage = "https://github.com/linville-charlie/vemem"

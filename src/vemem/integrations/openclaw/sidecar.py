@@ -1,14 +1,20 @@
-"""Framework-agnostic HTTP sidecar for vemem.
+"""HTTP sidecar that backs the openclaw vemem-bridge plugin.
 
 Long-lived process. Loads InsightFace + LanceDBStore once on startup so
-`/describe` responses are fast. Accepts a filesystem path (not base64) to
-avoid tool-arg truncation in host frameworks. Returns a ready-to-inject
-text block summarizing what vemem sees (face count + recognized entities +
-recalled facts).
+``/describe`` responses are fast. Accepts a filesystem path (not base64)
+to avoid tool-arg truncation in the host framework. Returns a ready-to-
+inject text block summarizing what vemem sees (face count + recognized
+entities + recalled facts).
 
-Used by the openclaw-plugin example at ``docs/examples/openclaw-plugin/``,
-but the HTTP shape is intentionally neutral so any host (TypeScript, Go,
-Rust, …) can integrate.
+The HTTP shape is intentionally neutral — any host language (TypeScript,
+Go, Rust, …) can POST to ``/describe`` — but the first-party companion
+plugin lives at ``integrations/openclaw/plugin/`` in this repo.
+
+Run it three ways:
+
+- **console script** (installed with vemem):  ``vemem-openclaw-sidecar``
+- **as a module**:                            ``python -m vemem.integrations.openclaw``
+- **directly from source**:                   ``python sidecar.py``
 
 Env vars:
     VEMEM_HOME       — LanceDB path (default ~/.vemem)
@@ -138,9 +144,10 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("content-length") or 0)
         raw = self.rfile.read(n) if n else b"{}"
         try:
-            return json.loads(raw or b"{}")
+            parsed = json.loads(raw or b"{}")
         except json.JSONDecodeError:
             return {}
+        return parsed if isinstance(parsed, dict) else {}
 
     def do_POST(self) -> None:
         try:

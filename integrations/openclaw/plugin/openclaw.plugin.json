@@ -1,0 +1,45 @@
+{
+  "id": "vemem-bridge",
+  "name": "vemem bridge",
+  "description": "Replaces the default image-description provider with vemem — persistent visual identity (face recognition + recall) via a local Python sidecar shipped with vemem.",
+  "version": "0.1.0",
+  "kind": "capability",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "vememDir": {
+        "type": "string",
+        "description": "Dev mode: absolute path to a checked-out vemem repo. Plugin runs the sidecar via `uv --directory <path> run vemem-openclaw-sidecar`. Leave unset to use the pip-installed `vemem-openclaw-sidecar` from PATH."
+      },
+      "vememHome": {
+        "type": "string",
+        "description": "Absolute path where LanceDB stores the gallery. Defaults to ~/.vemem when unset."
+      },
+      "sidecarCommand": {
+        "type": "string",
+        "description": "Escape hatch: explicit executable to launch instead of `uv run`/`vemem-openclaw-sidecar`. Rarely needed."
+      },
+      "sidecarHost": {
+        "type": "string",
+        "default": "127.0.0.1"
+      },
+      "sidecarPort": {
+        "type": "integer",
+        "default": 18790,
+        "minimum": 1024,
+        "maximum": 65535
+      },
+      "warmupTimeoutSeconds": {
+        "type": "integer",
+        "default": 60,
+        "description": "Max seconds to wait for sidecar /health to respond OK on startup. Extend on slower machines where InsightFace cold-start exceeds 60s."
+      },
+      "requestTimeoutSeconds": {
+        "type": "integer",
+        "default": 30,
+        "description": "Per-describe HTTP timeout."
+      }
+    }
+  }
+}

@@ -29,6 +29,7 @@ Works as:
 - **an MCP server** any MCP-capable LLM client can call (Claude Desktop, Cursor, custom agents)
 - **OpenAI function-calling tool schemas** for any non-MCP function-calling LLM (OpenAI, Anthropic, Gemini, Ollama)
 - **a CLI** (`vm label`, `vm inspect`, `vm forget`, …) for manual work and debugging
+- **first-party host integrations** (see [Integrations](#integrations) below) — vemem slots in as your host's automatic image-understanding layer, mem0-style, without the agent needing to call a tool
 
 ## Installation
 
@@ -94,6 +95,18 @@ uv run vm label obs_... --name Charlie
 uv run vm remember <entity_id> --fact "runs marathons"
 uv run vm recall <entity_id>
 ```
+
+## Integrations
+
+vemem is designed to slot under an existing agent framework as the **automatic image-understanding layer** — every image attachment is described through face recognition + persistent identity before the thinking LLM sees the message. The agent doesn't have to call a tool; vemem is just how the host describes images. This is the same seam mem0/supermemory use for conversational memory.
+
+| Host | Status | Docs |
+|---|---|---|
+| [openclaw](https://openclaw.dev) | **Supported (v0.1)** | [`integrations/openclaw/README.md`](./integrations/openclaw/README.md) |
+| Anything MCP-capable (Claude Desktop, Cursor, custom MCP clients) | Supported via the MCP server | [`docs/examples/mcp_usage.md`](./docs/examples/mcp_usage.md) |
+| Anything OpenAI-function-calling capable (OpenAI, Groq, Ollama-tools) | Supported via tool schemas | [`docs/examples/openai_tools.md`](./docs/examples/openai_tools.md) |
+
+Additional hosts are welcome as PRs under `integrations/`. The HTTP sidecar shipped with vemem (`vemem-openclaw-sidecar`, installed with the package) can be reused for any framework that can run a child process and call localhost HTTP.
 
 ## Compliance
 
