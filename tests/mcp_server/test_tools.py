@@ -83,6 +83,30 @@ def test_observe_image_errors_when_encoder_missing(
         tools.observe_image(ctx_without_encoder, image_base64=IMAGE_B64)
 
 
+def test_observe_image_accepts_image_path(ctx: ServerContext, tmp_path) -> None:
+    # Large-image MCP callers often exceed tool-arg size limits when sending
+    # base64; image_path sidesteps that by reading from disk in-process.
+    img = tmp_path / "face.bin"
+    img.write_bytes(IMAGE_BYTES)
+
+    result = tools.observe_image(ctx, image_path=str(img))
+
+    assert len(result["observations"]) == 1
+    # source_uri defaults to file://<path> when image_path is used.
+    obs_entry = result["observations"][0]
+    assert obs_entry["id"].startswith("obs_")
+
+
+def test_observe_image_requires_exactly_one_input(ctx: ServerContext, tmp_path) -> None:
+    img = tmp_path / "face.bin"
+    img.write_bytes(IMAGE_BYTES)
+
+    with pytest.raises(ValueError, match="exactly one"):
+        tools.observe_image(ctx)
+    with pytest.raises(ValueError, match="exactly one"):
+        tools.observe_image(ctx, image_base64=IMAGE_B64, image_path=str(img))
+
+
 # ---------- identify_image ----------
 
 
@@ -101,6 +125,16 @@ def test_identify_image_returns_candidates_for_seeded_entity(ctx: ServerContext)
 def test_identify_image_empty_when_gallery_empty(ctx: ServerContext) -> None:
     result = tools.identify_image(ctx, image_base64=IMAGE_B64)
     assert result["detections"][0]["candidates"] == []
+
+
+def test_identify_image_accepts_image_path(ctx: ServerContext, tmp_path) -> None:
+    _seed_label(ctx, name="Charlie")
+    img = tmp_path / "face.bin"
+    img.write_bytes(IMAGE_BYTES)
+
+    result = tools.identify_image(ctx, image_path=str(img))
+
+    assert any(c["entity"]["name"] == "Charlie" for c in result["detections"][0]["candidates"])
 
 
 def test_identify_image_errors_when_encoder_missing(

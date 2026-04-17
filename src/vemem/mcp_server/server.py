@@ -113,18 +113,21 @@ def create_server(ctx: ServerContext | None = None) -> FastMCP:
         name="observe_image",
         description=(
             "Detect and persist observations for every entity (face) in an image. "
-            "Accepts a base64-encoded image, runs the detector + encoder, and returns "
-            "the observation ids + bboxes that can feed into `label`. Idempotent."
+            "Pass either image_base64 OR image_path (absolute filesystem path — "
+            "preferred for large files to avoid base64 truncation). Returns observation "
+            "ids + bboxes that can feed into `label`. Idempotent."
         ),
     )
     def observe_image(
-        image_base64: str,
+        image_base64: str | None = None,
+        image_path: str | None = None,
         source_uri: str = "mcp://inline",
         modality: str = "face",
     ) -> dict[str, Any]:
         return tools.observe_image(
             ctx,
             image_base64=image_base64,
+            image_path=image_path,
             source_uri=source_uri,
             modality=modality,
         )
@@ -132,12 +135,14 @@ def create_server(ctx: ServerContext | None = None) -> FastMCP:
     @mcp.tool(
         name="identify_image",
         description=(
-            "Identify entities in an image without mutating state. Runs the detector "
-            "+ encoder and returns ranked Candidate matches per detected face."
+            "Identify entities in an image without mutating state. Pass either "
+            "image_base64 OR image_path (absolute filesystem path). Returns ranked "
+            "Candidate matches per detected face."
         ),
     )
     def identify_image(
-        image_base64: str,
+        image_base64: str | None = None,
+        image_path: str | None = None,
         k: int = 5,
         min_confidence: float = 0.5,
         prefer: str = "instance",
@@ -145,6 +150,7 @@ def create_server(ctx: ServerContext | None = None) -> FastMCP:
         return tools.identify_image(
             ctx,
             image_base64=image_base64,
+            image_path=image_path,
             k=k,
             min_confidence=min_confidence,
             prefer=prefer,
