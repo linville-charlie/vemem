@@ -287,8 +287,11 @@ def main():
     p_ask = sub.add_parser("ask", help="ask the thinking LLM about an image")
     p_ask.add_argument("image", type=str)
     p_ask.add_argument("question", type=str)
-    p_ask.add_argument("--use-vlm", action="store_true",
-                       help="also feed qwen3.5:cloud's scene description into the text context")
+    p_ask.add_argument(
+        "--use-vlm",
+        action="store_true",
+        help="also feed qwen3.5:cloud's scene description into the text context",
+    )
     p_ask.add_argument("--show-thinking", action="store_true")
     p_ask.set_defaults(fn=cmd_ask)
 

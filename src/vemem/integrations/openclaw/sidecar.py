@@ -49,6 +49,7 @@ class _SystemClock:
     def now(self) -> datetime:
         return datetime.now(tz=UTC)
 
+
 log = logging.getLogger("vemem-http")
 logging.basicConfig(
     level=logging.INFO, stream=sys.stderr, format="[vemem-http] %(levelname)s %(message)s"
