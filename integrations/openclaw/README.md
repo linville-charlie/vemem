@@ -173,11 +173,14 @@ curl -s -X POST http://127.0.0.1:18790/describe \
     -d '{"path": "/absolute/path/to/photo.jpg"}'
 # → {"text": "vemem: 1 face(s) detected.\nUnrecognized faces: 1. ..."}
 
-# 3. label it using the vemem CLI (pip-install put `vm` on PATH too)
+# 3. label it using the vemem CLI (pip-install put `vm` on PATH too).
+#    label binds obs → entity; remember attaches a fact.
 VEMEM_HOME=/home/you/.openclaw/memory/vemem \
   vm observe /absolute/path/to/photo.jpg               # prints observation id
 VEMEM_HOME=/home/you/.openclaw/memory/vemem \
-  vm label obs_... --name "Alice" --fact "the user"
+  vm label obs_... --name "Alice"                      # prints entity id
+VEMEM_HOME=/home/you/.openclaw/memory/vemem \
+  vm remember ent_... --fact "the user"
 
 # 4. re-describe — should now be recognized
 curl -s -X POST http://127.0.0.1:18790/describe \
@@ -186,7 +189,7 @@ curl -s -X POST http://127.0.0.1:18790/describe \
 # → {"text": "vemem: 1 face(s) detected.\nRecognized: Alice (conf 1.00). Known facts: [the user]"}
 ```
 
-If step 4 still reports `"Unrecognized"`, the sidecar is pointed at a different `VEMEM_HOME` than the CLI — re-check paths.
+If step 4 still reports `"Unrecognized"`, the sidecar is pointed at a different `VEMEM_HOME` than the CLI — re-check paths (both default to `~/.vemem` when unset).
 
 **Send an image on your normal chat surface** (Discord, Telegram, Slack — wherever you have openclaw wired). The agent's response should reference what vemem reported ("that's Alice — the user") rather than free-form describing the pixels. If the agent still does generic scene description, something else is handling media-understanding — grep the gateway log for `gemini` / `openai` / `anthropic` describe calls and confirm `tools.media.image.models` is set as above.
 
