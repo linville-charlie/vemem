@@ -81,6 +81,10 @@ vem = Vemem(store=FakeStore(), encoder=StubEncoder(), detector=StubDetector())
 ## Run as an MCP server
 
 ```bash
+vemem-mcp-server               # installed via uv tool install / pipx — runs on stdio
+# or, in a repo checkout:
+uv run vemem-mcp-server
+# or:
 uv run python -m vemem.mcp_server
 ```
 

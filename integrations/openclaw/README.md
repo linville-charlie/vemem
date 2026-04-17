@@ -4,6 +4,8 @@ vemem is supported as an automatic image-understanding provider for openclaw. Af
 
 The same seam mem0/supermemory use for conversational memory, applied to visual identity.
 
+> **Platform status:** end-to-end verified on **Ubuntu 24.04** (kernel 6.8, Python 3.13, 4 CPU cores, CPU-only InsightFace). **macOS and Windows install steps are written from the docs of the underlying tools but have not been run by the authors.** If you hit a platform-specific issue, please open an issue at https://github.com/linville-charlie/vemem/issues — we'll fold the fix back in.
+
 ## Architecture
 
 ```
@@ -59,13 +61,25 @@ The Python sidecar ships in the vemem Python package at `src/vemem/integrations/
 
 ## Install — two modes
 
-### Mode A: released (pip install)
+### Mode A: tool install (recommended — what the README verifies)
+
+Install vemem into an isolated environment whose console scripts land on your user `PATH`:
 
 ```bash
-pip install vemem              # or `uv pip install vemem`, `pipx install vemem`
+uv tool install git+https://github.com/linville-charlie/vemem
+# or: pipx install git+https://github.com/linville-charlie/vemem
+# or (once vemem is on PyPI): uv tool install vemem / pipx install vemem
 ```
 
-After this, `vemem-openclaw-sidecar` is on your `PATH`.
+After this, three scripts are available:
+
+| Script | What it is |
+|---|---|
+| `vm` | The vemem CLI (`vm observe`, `vm label`, `vm remember`, …) |
+| `vemem-openclaw-sidecar` | The HTTP sidecar this plugin spawns |
+| `vemem-mcp-server` | The MCP server exposing corrections (`label`, `merge`, `forget`, `undo`) |
+
+Verify with `command -v vemem-openclaw-sidecar` — it should print something under `~/.local/bin/` (or your tool-install bin path).
 
 ### Mode B: dev (against a repo checkout)
 
@@ -116,7 +130,7 @@ Remember the absolute path — you'll pass it as `vememDir` below.
      }
    }
    ```
-   Mode A (pip-installed vemem): **that's it** — empty config works. The plugin runs `vemem-openclaw-sidecar` off `PATH` and writes LanceDB data to `~/.vemem`.
+   Mode A (tool-installed vemem): **that's it** — empty config works. The plugin runs `vemem-openclaw-sidecar` off `PATH` and writes LanceDB data to `~/.vemem`.
 
    Mode B (repo checkout) or custom data directory:
    ```json
@@ -135,14 +149,14 @@ Remember the absolute path — you'll pass it as `vememDir` below.
    "mcp": {
      "servers": {
        "vemem": {
-         "command": "python",
-         "args": ["-m", "vemem.mcp_server"],
+         "command": "vemem-mcp-server",
+         "args": [],
          "env": { "VEMEM_HOME": "/home/you/.openclaw/memory/vemem" }
        }
      }
    }
    ```
-   (If you're in Mode B, use `"command": "uv", "args": ["--directory", "/home/you/code/vemem", "run", "python", "-m", "vemem.mcp_server"]` instead.)
+   (Mode B: replace with `"command": "uv", "args": ["--directory", "/home/you/code/vemem", "run", "vemem-mcp-server"]`.)
 
 4. **Restart the gateway.** Use whichever supervisor runs it:
    - Linux (systemd user unit): `systemctl --user restart openclaw-gateway`
@@ -156,7 +170,7 @@ Remember the absolute path — you'll pass it as `vememDir` below.
    [vemem-bridge] sidecar: [vemem-http] INFO listening on http://127.0.0.1:18790
    [vemem-bridge] sidecar ready at http://127.0.0.1:18790
    ```
-   If instead you see `failed to spawn sidecar` the `vemem-openclaw-sidecar` command isn't on `PATH` — `pip install vemem` or set `config.vememDir`.
+   If instead you see `failed to spawn sidecar` the `vemem-openclaw-sidecar` command isn't on `PATH` — re-run the Mode A install (`uv tool install git+https://github.com/linville-charlie/vemem` or `pipx install …`), or set `config.vememDir` to fall back to Mode B.
 
 ## Verification
 

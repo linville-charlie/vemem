@@ -15,6 +15,7 @@ Versions before 1.0 may break API without notice.
 
 **MCP server**
 - `observe_image` and `identify_image` accept an optional `image_path` alongside `image_base64`, sidestepping tool-argument size caps that silently truncate multi-MB images. Exactly one of the two inputs must be provided.
+- `vemem-mcp-server` console script — launches the stdio MCP server without `python -m vemem.mcp_server` gymnastics when vemem is installed via `uv tool install` / `pipx`. Hosts can point `mcp.servers.vemem.command` straight at the script.
 
 **Bridges**
 - `bridges/openclaw_bridge.py` — ollama-powered CLI demo (VLM + thinking LLM via vemem). Illustrates the observe → identify → recall → reason flow end-to-end with a hard invariant that image bytes never reach the thinking LLM.
@@ -23,7 +24,7 @@ Versions before 1.0 may break API without notice.
 ### Changed
 
 - Root README adds an Integrations section listing supported hosts.
-- pyproject.toml declares the `vemem-openclaw-sidecar` console script.
+- pyproject.toml declares three console scripts: `vm` (CLI, existing), `vemem-mcp-server` (new), and `vemem-openclaw-sidecar` (new).
 
 ## [0.1.0] — 2026-04-17 — initial v0
 
