@@ -180,3 +180,114 @@ def test_encoder_id_is_stable_within_process(encoder: InsightFaceEncoder) -> Non
     assert encoder.id == other.id
     # Also sanity-check the id is hashable (used as a dict key in storage).
     hashlib.sha256(encoder.id.encode()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# embed_frame — regression coverage for the full-frame + bbox contract the
+# pipeline uses. A tight-bbox ``embed`` call would fail because InsightFace's
+# internal detector can't re-find a face in a crop with zero context; the
+# frame-based entry point avoids that by passing the full image and matching
+# InsightFace's own detections back to the caller's bbox via IoU.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_embed_frame_produces_same_embedding_as_embed_on_crop(
+    encoder: InsightFaceEncoder,
+    detector: InsightFaceDetector,
+    fixtures_dir: Path,
+) -> None:
+    img = _read_fixture(fixtures_dir, "person_a_front.jpg")
+    bboxes = detector.detect(img)
+    assert bboxes, "fixture should contain a detectable face"
+
+    via_frame = encoder.embed_frame(img, bboxes[0])
+
+    # The whole-image embed happens to work on this fixture because
+    # InsightFace can detect the face in the full frame. Cosine similarity
+    # between the two should be essentially 1.
+    via_full = encoder.embed(img)
+    assert _cosine(via_frame, via_full) > 0.99
+
+
+@pytest.mark.integration
+def test_embed_frame_recognizes_same_person_across_angles(
+    encoder: InsightFaceEncoder,
+    detector: InsightFaceDetector,
+    fixtures_dir: Path,
+) -> None:
+    front = _read_fixture(fixtures_dir, "person_a_front.jpg")
+    alt = _read_fixture(fixtures_dir, "person_a_alt.jpg")
+    front_bbox = detector.detect(front)[0]
+    alt_bbox = detector.detect(alt)[0]
+
+    a1 = encoder.embed_frame(front, front_bbox)
+    a2 = encoder.embed_frame(alt, alt_bbox)
+
+    assert _cosine(a1, a2) > 0.35
+
+
+@pytest.mark.integration
+def test_embed_frame_distinguishes_different_people(
+    encoder: InsightFaceEncoder,
+    detector: InsightFaceDetector,
+    fixtures_dir: Path,
+) -> None:
+    a = _read_fixture(fixtures_dir, "person_a_front.jpg")
+    b = _read_fixture(fixtures_dir, "person_b_front.jpg")
+    a_bbox = detector.detect(a)[0]
+    b_bbox = detector.detect(b)[0]
+
+    va = encoder.embed_frame(a, a_bbox)
+    vb = encoder.embed_frame(b, b_bbox)
+
+    assert _cosine(va, vb) < 0.35
+
+
+@pytest.mark.integration
+def test_embed_frame_raises_when_bbox_misses_every_face(
+    encoder: InsightFaceEncoder,
+    fixtures_dir: Path,
+) -> None:
+    img = _read_fixture(fixtures_dir, "person_a_front.jpg")
+    # bbox in a corner that's nowhere near the face
+    with pytest.raises(RuntimeError, match="no detected face overlaps requested bbox"):
+        encoder.embed_frame(img, (0, 0, 10, 10))
+
+
+@pytest.mark.integration
+def test_pipeline_integrates_with_insightface_encoder(
+    encoder: InsightFaceEncoder,
+    detector: InsightFaceDetector,
+    fixtures_dir: Path,
+) -> None:
+    """End-to-end regression for issue #3.
+
+    Before ``embed_frame`` landed, the crop-fix commit (#12fc056) broke this
+    exact path: ``pipeline.observe_image`` handed a tight bbox crop to
+    InsightFace, which then failed internal re-detection and raised. This
+    test exercises the whole chain with a real photo so the regression can't
+    come back silently.
+    """
+    from datetime import UTC, datetime
+
+    from tests.support.fake_store import FakeStore
+    from vemem.pipeline import observe_image
+
+    class _Clock:
+        def now(self) -> datetime:
+            return datetime.now(tz=UTC)
+
+    img = _read_fixture(fixtures_dir, "person_a_front.jpg")
+    observations = observe_image(
+        FakeStore(),
+        image_bytes=img,
+        detector=detector,
+        encoder=encoder,
+        clock=_Clock(),
+    )
+
+    assert len(observations) >= 1
+    for obs in observations:
+        _x, _y, w, h = obs.bbox
+        assert w > 0 and h > 0

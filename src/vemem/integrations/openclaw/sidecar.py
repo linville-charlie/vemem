@@ -108,8 +108,16 @@ def describe(image_path: str) -> str:
 
     named: list[str] = []
     unknown = 0
-    for _obs in observations:
-        vector = ENCODER.embed(image_bytes)
+    for obs in observations:
+        # Per-bbox embedding. Prefer embed_frame when the encoder implements
+        # it (InsightFace does — a tight bbox crop starves its internal
+        # detector of context) and fall back to embed(full) otherwise. Without
+        # this, every face in a multi-face image gets the same embedding and
+        # group-photo identification fails silently.
+        if hasattr(ENCODER, "embed_frame"):
+            vector = ENCODER.embed_frame(image_bytes, obs.bbox)
+        else:
+            vector = ENCODER.embed(image_bytes)
         candidates = ops.identify(
             STORE, encoder_id=ENCODER.id, vector=vector, k=3, min_confidence=0.5
         )
