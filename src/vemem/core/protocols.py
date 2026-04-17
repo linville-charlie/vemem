@@ -35,16 +35,43 @@ class Clock(Protocol):
 
 @runtime_checkable
 class Encoder(Protocol):
-    """Produces an embedding vector from an image crop.
+    """Produces an embedding vector from an image region.
 
     ``id`` must include encoder version — e.g. ``insightface/arcface@0.7.3`` —
     because encoder version is part of identity-of-evidence (spec §3.1a).
+
+    **Input modes.** Encoders come in two flavors:
+
+    - **Crop-expecting** (e.g. CLIP, DINOv3, SigLIP). Hand them a pre-cropped
+      region and they produce a vector. They only need to implement
+      :meth:`embed`.
+    - **Frame-expecting** (e.g. InsightFace's ArcFace). They run internal
+      detection + landmark alignment on whatever bytes they receive, so a
+      tight bbox crop starves them of context. They should additionally
+      implement :meth:`embed_frame`, which receives the full image plus the
+      detector-emitted bbox and picks the right face internally.
+
+    The pipeline (``vemem.pipeline.observe_image``) prefers ``embed_frame``
+    when available, and falls back to ``embed`` with a pre-cropped region
+    otherwise. Callers that hold a raw crop can always call ``embed`` directly.
     """
 
     id: str
     dim: int
 
     def embed(self, image_crop: bytes) -> tuple[float, ...]: ...
+
+    # Optional: not every encoder needs this. Duck-typed via hasattr() in
+    # the pipeline rather than marked with @runtime_checkable — Python
+    # Protocols don't express "optional method" cleanly and forcing every
+    # encoder to implement a passthrough is worse than a simple attribute
+    # check.
+    #
+    # def embed_frame(
+    #     self,
+    #     image_bytes: bytes,
+    #     bbox: tuple[int, int, int, int],
+    # ) -> tuple[float, ...]: ...
 
 
 @runtime_checkable

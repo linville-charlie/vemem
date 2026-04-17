@@ -43,13 +43,19 @@ def observe_image(
     emitted them. Observation ids are content-addressed (spec §3.1) so
     re-observing identical bytes returns existing rows idempotently.
 
-    Each detected region is **cropped before encoding** so the encoder
-    receives only the relevant face/object — not the full frame. This is
-    load-bearing for encoder-agnosticism: InsightFace does internal re-
-    detection and works with full images too, but CLIP and other encoders
-    would embed the entire frame rather than the detected region, producing
-    garbage identity vectors. Crop-then-encode is the strictly correct
-    contract.
+    The pipeline dispatches on the encoder's shape (see Encoder Protocol):
+
+    - If the encoder implements ``embed_frame(image_bytes, bbox)``, we hand
+      it the full frame and let it own detection/alignment. This is what
+      InsightFace wants — it runs its own detector + landmark alignment
+      internally, and a tight bbox crop would starve it of context.
+    - Otherwise we crop to the bbox and call ``embed(crop)``. This is what
+      CLIP / DINOv3 / SigLIP and similar "give me pre-cropped input" encoders
+      expect; handing them the full frame would silently embed the whole
+      image.
+
+    Either way the encoder sees exactly the region the detector flagged, just
+    via the contract it actually wants.
 
     ``source_uri`` is an opaque reference the library never fetches (spec
     §3.1b); if ``None``, we fall back to ``hash:<sha256>``.
@@ -78,8 +84,18 @@ def observe_image(
         else:
             obs = existing
 
-        crop_bytes = crop_image(image_bytes, bbox)
-        vector = encoder.embed(crop_bytes)
+        # Two encoder input modes (see Encoder Protocol docstring):
+        #   - embed_frame(full image, bbox) — encoders that do their own
+        #     detection + landmark alignment internally (InsightFace). A
+        #     tight bbox crop removes the context their internal detector
+        #     needs, so we hand them the full frame and let them pick.
+        #   - embed(crop) — encoders that expect a pre-cropped region
+        #     (CLIP, DINOv3, …). The pipeline crops for them.
+        if hasattr(encoder, "embed_frame"):
+            vector = encoder.embed_frame(image_bytes, bbox)
+        else:
+            crop_bytes = crop_image(image_bytes, bbox)
+            vector = encoder.embed(crop_bytes)
         store.put_embedding(
             Embedding(
                 id="emb_" + new_id(),

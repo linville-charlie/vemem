@@ -159,8 +159,14 @@ def build_context(
 
     named: list[str] = []
     unknown = 0
-    for _bbox in bboxes:
-        vector = encoder.embed(image_bytes)
+    for bbox in bboxes:
+        # Prefer embed_frame (encoders with internal detect+align, e.g.
+        # InsightFace) over embed(full) — otherwise every face in a
+        # multi-face image gets the same embedding.
+        if hasattr(encoder, "embed_frame"):
+            vector = encoder.embed_frame(image_bytes, bbox)
+        else:
+            vector = encoder.embed(image_bytes)
         candidates = ops.identify(
             store,
             encoder_id=encoder.id,
