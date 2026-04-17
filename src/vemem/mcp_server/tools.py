@@ -83,6 +83,21 @@ def _decode_image(image_b64: str) -> bytes:
         raise ValueError(f"image_base64 is not valid base64: {exc}") from exc
 
 
+def _load_image_bytes(image_base64: str | None, image_path: str | None) -> bytes:
+    """Resolve image bytes from exactly one of base64 payload or filesystem path.
+
+    Agents driving this over MCP often hit tool-arg truncation when piping large
+    base64 strings through an exec tool. Accepting a local path sidesteps that.
+    """
+    from pathlib import Path
+
+    if bool(image_base64) == bool(image_path):
+        raise ValueError("Provide exactly one of image_base64 or image_path.")
+    if image_path:
+        return Path(image_path).read_bytes()
+    return _decode_image(image_base64)  # type: ignore[arg-type]
+
+
 def _ingest_image(
     ctx: ServerContext,
     *,
@@ -111,7 +126,8 @@ def _ingest_image(
 def observe_image(
     ctx: ServerContext,
     *,
-    image_base64: str,
+    image_base64: str | None = None,
+    image_path: str | None = None,
     source_uri: str = "mcp://inline",
     modality: str = "face",
 ) -> dict[str, Any]:
@@ -121,7 +137,9 @@ def observe_image(
     ``label`` call can target them. Idempotent: re-observing the same image
     returns the same ids (§3.1).
     """
-    image_bytes = _decode_image(image_base64)
+    image_bytes = _load_image_bytes(image_base64, image_path)
+    if source_uri == "mcp://inline" and image_path:
+        source_uri = f"file://{image_path}"
     observations = _ingest_image(
         ctx,
         image_bytes=image_bytes,
@@ -139,7 +157,8 @@ def observe_image(
 def identify_image(
     ctx: ServerContext,
     *,
-    image_base64: str,
+    image_base64: str | None = None,
+    image_path: str | None = None,
     k: int = 5,
     min_confidence: float = 0.5,
     prefer: str = "instance",
@@ -151,7 +170,7 @@ def identify_image(
     entities per detected face.
     """
     encoder, detector = ctx.require_image_pipeline()
-    image_bytes = _decode_image(image_base64)
+    image_bytes = _load_image_bytes(image_base64, image_path)
 
     bboxes = detector.detect(image_bytes)
     results: list[dict[str, Any]] = []

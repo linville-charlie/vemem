@@ -54,7 +54,7 @@ Four user-facing surfaces, one semantic core:
 | Surface | Code | When |
 |---|---|---|
 | Python library | `from vemem import Vemem` | Your own app |
-| MCP server | `python -m vemem.mcp_server` | Claude Desktop, Cursor |
+| MCP server | `vemem-mcp-server` (stdio) | Claude Desktop, Cursor |
 | OpenAI tool schemas | `vm export-tools > tools.json` | OpenAI/Anthropic/Gemini/Ollama |
 | CLI | `vm label`, `vm inspect`, … | Manual work, scripts |
 

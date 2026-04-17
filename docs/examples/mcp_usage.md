@@ -7,10 +7,20 @@ write a local vemem store.
 
 ## Running it
 
+Three equivalent ways, pick whichever fits your install:
+
 ```bash
-uv sync                                # install deps, including `mcp`
-uv run python -m vemem.mcp_server      # stdio transport (default)
+# installed globally via `pipx install vemem` / `uv tool install vemem`
+vemem-mcp-server
+
+# via the module (useful when vemem is importable by your current python)
+python -m vemem.mcp_server
+
+# in a repo checkout (dev mode)
+uv run vemem-mcp-server
 ```
+
+All three run on stdio — point your MCP client's `command` at whichever works for your setup.
 
 Environment variables:
 

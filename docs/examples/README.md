@@ -13,6 +13,8 @@ the repo installed via `uv sync`.
 | [`cli_tour.md`](./cli_tour.md) | Guided walkthrough of the `vm` console script — observe, label, remember, identify, undo, forget. |
 | [`openai_tools.md`](./openai_tools.md) | Using the OpenAI-compatible tool schemas (`vm export-tools`) for function-calling agents (OpenAI, Groq, together.ai, Ollama in tools mode). |
 
+For the [openclaw](https://openclaw.dev) integration, see the top-level [`integrations/openclaw/`](../../integrations/openclaw/) — it's a first-party supported host, not an example.
+
 ## Quick start
 
 ```bash
