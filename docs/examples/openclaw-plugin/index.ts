@@ -34,24 +34,39 @@ type PluginConfig = {
   requestTimeoutSeconds?: number;
 };
 
-const DEFAULTS = {
-  vememDir: "/home/ella/.openclaw/workspace/vemem",
-  vememHome: "/home/ella/.openclaw/memory/vemem",
+const NON_PATH_DEFAULTS = {
   sidecarHost: "127.0.0.1",
   sidecarPort: 18790,
   warmupTimeoutSeconds: 60,
   requestTimeoutSeconds: 30,
 };
 
+class VememBridgeConfigError extends Error {}
+
 function pickConfig(raw: unknown): Required<PluginConfig> {
   const cfg = (raw ?? {}) as PluginConfig;
+  // vememDir and vememHome have no reasonable cross-machine defaults. Fail
+  // loudly at register time rather than silently pointing at someone else's
+  // filesystem.
+  if (!cfg.vememDir) {
+    throw new VememBridgeConfigError(
+      "vemem-bridge: missing required config.vememDir — set it to the absolute " +
+        "path of your cloned vemem repo (the directory containing pyproject.toml).",
+    );
+  }
+  if (!cfg.vememHome) {
+    throw new VememBridgeConfigError(
+      "vemem-bridge: missing required config.vememHome — set it to the absolute " +
+        "path where LanceDB should live (e.g. ~/.vemem or a dir under your agent state).",
+    );
+  }
   return {
-    vememDir: cfg.vememDir || DEFAULTS.vememDir,
-    vememHome: cfg.vememHome || DEFAULTS.vememHome,
-    sidecarHost: cfg.sidecarHost || DEFAULTS.sidecarHost,
-    sidecarPort: cfg.sidecarPort || DEFAULTS.sidecarPort,
-    warmupTimeoutSeconds: cfg.warmupTimeoutSeconds || DEFAULTS.warmupTimeoutSeconds,
-    requestTimeoutSeconds: cfg.requestTimeoutSeconds || DEFAULTS.requestTimeoutSeconds,
+    vememDir: cfg.vememDir,
+    vememHome: cfg.vememHome,
+    sidecarHost: cfg.sidecarHost || NON_PATH_DEFAULTS.sidecarHost,
+    sidecarPort: cfg.sidecarPort || NON_PATH_DEFAULTS.sidecarPort,
+    warmupTimeoutSeconds: cfg.warmupTimeoutSeconds || NON_PATH_DEFAULTS.warmupTimeoutSeconds,
+    requestTimeoutSeconds: cfg.requestTimeoutSeconds || NON_PATH_DEFAULTS.requestTimeoutSeconds,
   };
 }
 
@@ -84,7 +99,16 @@ async function waitForHealth(
 const plugin = {
   id: "vemem-bridge",
   register(api: OpenClawPluginApi) {
-    const cfg = pickConfig(api.pluginConfig);
+    let cfg: Required<PluginConfig>;
+    try {
+      cfg = pickConfig(api.pluginConfig);
+    } catch (err) {
+      if (err instanceof VememBridgeConfigError) {
+        api.logger.error(`[vemem-bridge] ${err.message}`);
+        return; // refuse to start; host keeps running without vemem
+      }
+      throw err;
+    }
     const log = (msg: string) => api.logger.info(`[vemem-bridge] ${msg}`);
     const warn = (msg: string) => api.logger.warn(`[vemem-bridge] ${msg}`);
     const error = (msg: string) => api.logger.error(`[vemem-bridge] ${msg}`);
