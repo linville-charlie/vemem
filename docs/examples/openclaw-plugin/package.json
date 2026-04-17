@@ -1,0 +1,12 @@
+{
+  "name": "vemem-bridge",
+  "version": "0.1.0",
+  "description": "openclaw plugin that wires vemem (visual entity memory) as the image-description provider. Spawns a local Python HTTP sidecar on load.",
+  "type": "module",
+  "main": "index.ts",
+  "keywords": ["openclaw", "openclaw-plugin", "vemem", "visual-memory", "media-understanding"],
+  "license": "MIT",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  }
+}
