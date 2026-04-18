@@ -8,7 +8,7 @@ run and the project layout is validated end-to-end.
 def test_package_imports() -> None:
     import vemem
 
-    assert vemem.__version__ == "0.0.1"
+    assert vemem.__version__ == "0.1.0"
 
 
 def test_submodules_import() -> None:
