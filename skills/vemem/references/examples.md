@@ -1,16 +1,24 @@
 # Code recipes — plugging vemem into real pipelines
 
-Concrete copy-paste code for the three flows that come up constantly:
+Concrete copy-paste code for the flows that come up constantly.
 
-1. Real VLM + real LLM (Ollama, OpenAI, Claude)
-2. Correction after a wrong identify
-3. Composing with text memory systems (Mem0 / Letta / Supermemory)
+## Scope and privacy — read before copying
+
+**vemem itself never sends image bytes over the network** (the one first-use InsightFace model download aside). But the recipes below include optional VLM and LLM calls that *can* send images to third-party APIs if you pick those providers.
+
+The three recipes, ordered by data-locality:
+
+1. **Ollama** — fully local. Images stay on your machine. Recommended for first-run and for privacy-sensitive deployments.
+2. **OpenAI** — images encoded and sent to OpenAI's API. Review OpenAI's data retention policy before using in production.
+3. **Anthropic (Claude)** — same as OpenAI: images sent to the API. Review Anthropic's retention policy.
+
+If the user hasn't opted into remote VLM/LLM calls, stay on the Ollama path. vemem never requires a remote API; the composition is a deployer's choice.
 
 ---
 
 ## Pattern 1 — Camera frame → VLM + vemem + LLM
 
-### Ollama (fully local, no API keys)
+### Ollama (fully local, no API keys, no data egress)
 
 ```python
 import ollama

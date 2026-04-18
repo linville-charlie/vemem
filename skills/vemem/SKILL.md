@@ -10,6 +10,62 @@ metadata:
 
 # vemem — visual entity memory
 
+## Before you install — what this skill touches on your system
+
+Read this first. This skill handles biometric data, so transparency up front beats surprises later.
+
+### What this skill is, exactly
+
+**The skill itself is instruction-only.** It's the markdown you're reading — no scripts, no executables, no automatic installation of anything. Adding this skill to your ClawHub / Claude Code / Hermes / OpenClaw install does not by itself run code on your machine.
+
+The skill *instructs the agent* to install and use the `vemem` Python package separately. That package is the component that actually reads images and writes to disk.
+
+### If you install the vemem package, here is everything it does
+
+**Local state it creates or reads:**
+- `~/.vemem/` (override with `VEMEM_HOME`) — the LanceDB store holding face embeddings, entity bindings, facts, and the event log. This is where biometric vectors live.
+- `~/.insightface/models/buffalo_l/` — InsightFace model weights (~200MB), downloaded from InsightFace's official distribution on the first face observation.
+- **Images you explicitly pass** to `observe_image` / `identify_image` — either as base64 or as a filesystem path the library reads. **vemem does not scan your disk for images on its own.** It only sees bytes you hand it.
+
+**Network activity vemem itself produces:**
+- **First-use only**: downloads InsightFace `buffalo_l` weights. After that, zero network activity from the library.
+- The MCP server (`vemem-mcp-server`) uses **stdio only** — no network ports opened.
+- The optional OpenClaw sidecar (`vemem-openclaw-sidecar`) binds to **localhost only**.
+
+**What vemem does NOT do on its own:**
+- Does not call remote LLM APIs. Example recipes in `references/examples.md` show how to *compose* vemem with OpenAI / Anthropic APIs if you choose to. Those are your calls, with your API keys. If you stay local (Ollama etc.), nothing leaves your machine.
+- Does not process images automatically. Every `observe_image` is an explicit invocation by the agent or you.
+- Does not train on your data, phone home, or send embeddings anywhere.
+
+### The OpenClaw automatic-processing concern is a separate opt-in
+
+The ClawHub review correctly flagged that vemem has a first-party OpenClaw integration that can auto-process every image attachment. **That integration is a separate install** (`vemem-openclaw-sidecar` + registering a specific OpenClaw plugin) and is NOT enabled by adding this skill or by installing the base `vemem` package.
+
+Enable it only if you understand you're granting an always-on face-recognition layer over every image your agent sees. Disable at any time by stopping the sidecar process.
+
+### Verification & provenance
+
+- Source: [github.com/linville-charlie/vemem](https://github.com/linville-charlie/vemem) · MIT license
+- Release tags are signed commits on `main`; pin a version in production (e.g. `vemem==0.1.0`) rather than tracking `latest`
+- `pip show -f vemem` lists every file the install adds to your environment
+- To audit what the MCP server or sidecar actually touches at runtime:
+  - Linux/macOS: `lsof -p <pid>` (open files + sockets) or `strace -e trace=file,network -p <pid>`
+  - macOS Instruments File Activity trace for a GUI view
+- The GDPR-style `forget()` is [test-verified](https://github.com/linville-charlie/vemem/blob/main/tests/storage/test_lancedb_specific.py) to physically remove embeddings from LanceDB version history. Reproduce locally before trusting for regulated data.
+
+### Compliance context
+
+vemem stores biometric identifiers. **If you deploy it to users other than yourself, YOU are the data controller under GDPR / BIPA / CCPA.** The library provides primitives (`forget` / `restrict` / `export`) but does not enforce consent capture — that's your app's responsibility. Full deployer checklist: [COMPLIANCE.md](https://github.com/linville-charlie/vemem/blob/main/COMPLIANCE.md).
+
+### Recommended first-run posture
+
+1. Install into a dedicated venv, not your system Python.
+2. Use a test `VEMEM_HOME` path (e.g. `/tmp/vemem-test`) for your first session so you can inspect + delete the store wholesale.
+3. Use a local VLM/LLM (Ollama) for the first integration test, not remote APIs, to confirm no images leave your machine.
+4. Enable the OpenClaw sidecar integration only after you've seen vemem behave as a manually-invoked tool.
+
+---
+
 ## What this skill does
 
 vemem is the identity layer that sits between a vision model (face/object detector) and a text LLM. It turns "an image of a person" into a **named, stable entity ID** — same person across sessions, same face across angles, same object across lighting.
