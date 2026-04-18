@@ -181,7 +181,22 @@ Full checklist: `COMPLIANCE.md` in the vemem repo.
 | `ModalityMismatchError` on merge | Trying to merge a face entity with an object entity | v0 keeps modalities separate; create an `instance_of` relationship instead |
 | `OperationNotReversibleError` on undo | Past 30 days, or op was `forget` | Not fixable — `forget` is deliberately irreversible; window is configurable via `DEFAULT_UNDO_WINDOW` |
 
-## References
+## Deeper references (bundled with this skill)
+
+Loaded on demand when the agent needs the detail — keep them out of the
+hot context path.
+
+- [`references/mcp-tools.md`](references/mcp-tools.md) — every MCP tool's
+  exact input/output shape. Read when deciding parameter names for a
+  specific tool call.
+- [`references/examples.md`](references/examples.md) — copy-paste code
+  recipes for Ollama, OpenAI, and Claude; correction flows; privacy
+  flows; composition with Mem0 / Letta.
+- [`references/troubleshooting.md`](references/troubleshooting.md) —
+  expanded error matrix with diagnostic commands. Read when a tool
+  raises something unexpected.
+
+## Upstream references (in the vemem repo)
 
 - Full spec (load-bearing): `docs/spec/identity-semantics.md`
 - Architecture: `docs/ARCHITECTURE.md`
