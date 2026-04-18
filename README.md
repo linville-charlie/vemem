@@ -30,6 +30,7 @@ Works as:
 - **OpenAI function-calling tool schemas** for any non-MCP function-calling LLM (OpenAI, Anthropic, Gemini, Ollama)
 - **a CLI** (`vm label`, `vm inspect`, `vm forget`, …) for manual work and debugging
 - **first-party host integrations** (see [Integrations](#integrations) below) — vemem slots in as your host's automatic image-understanding layer, mem0-style, without the agent needing to call a tool
+- **an [Agent Skills](https://agentskills.io) package** at [`skills/vemem/`](./skills/vemem/) that drops into Claude, Claude Code, Cursor, Hermes Agent, OpenClaw, Goose, OpenHands, Letta, and 25+ other skills-compatible hosts
 
 ## Installation
 
