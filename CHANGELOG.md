@@ -5,26 +5,28 @@ All notable changes to vemem.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions before 1.0 may break API without notice.
 
-## [Unreleased]
+## [Unreleased] — targeting 0.1.1
 
-### Added
+The 0.1.0 wheel on PyPI includes the openclaw integration code and the
+`vemem-openclaw-sidecar` console script, but the openclaw-side plugin
+and production documentation aren't ready for it to be treated as a
+supported surface yet. Both land officially in 0.1.1; until then, treat
+the sidecar as preview and expect polish/renaming before final.
+
+### Added (preview — officially supported in 0.1.1)
 
 **First-party integrations**
 - `vemem.integrations.openclaw` — automatic image-understanding provider for [openclaw](https://openclaw.dev). Ships a long-lived HTTP sidecar (`vemem-openclaw-sidecar` console script) plus a drop-in TypeScript plugin under `integrations/openclaw/plugin/`. Registers vemem as openclaw's media-understanding provider so every image attachment is transparently face-recognized + fact-recalled before the thinking LLM sees the conversation — no agent-side tool calls required.
-- `integrations/` top-level directory for future host integrations. Each entry is supported: tests, changelog, and issues welcome.
-
-**MCP server**
-- `observe_image` and `identify_image` accept an optional `image_path` alongside `image_base64`, sidestepping tool-argument size caps that silently truncate multi-MB images. Exactly one of the two inputs must be provided.
-- `vemem-mcp-server` console script — launches the stdio MCP server without `python -m vemem.mcp_server` gymnastics when vemem is installed via `uv tool install` / `pipx`. Hosts can point `mcp.servers.vemem.command` straight at the script.
+- `integrations/` top-level directory for future host integrations.
 
 **Bridges**
 - `bridges/openclaw_bridge.py` — ollama-powered CLI demo (VLM + thinking LLM via vemem). Illustrates the observe → identify → recall → reason flow end-to-end with a hard invariant that image bytes never reach the thinking LLM.
-- `bridges/` now clearly scoped as demo scripts; production integrations live under `integrations/`.
 
-### Changed
+### To finalize before tagging 0.1.1
 
-- Root README adds an Integrations section listing supported hosts.
-- pyproject.toml declares three console scripts: `vm` (CLI, existing), `vemem-mcp-server` (new), and `vemem-openclaw-sidecar` (new).
+- Openclaw-side plugin loader docs + tested against current openclaw release.
+- Audit actor-attribution story for the sidecar (parallel to the MCP server's `VEMEM_MCP_ACTOR` fix).
+- Decide whether to expose the sidecar's HTTP API as a public surface or keep it internal-to-openclaw-only.
 
 ## [0.1.0] — 2026-04-17 — initial v0
 
@@ -60,9 +62,17 @@ First pre-alpha release. All surfaces from the v0 implementation plan are live; 
 
 **Four surfaces**
 - Python library via `from vemem import Vemem`
-- MCP server (`python -m vemem.mcp_server`) with 14 tools over stdio
+- MCP server (`vemem-mcp-server` or `python -m vemem.mcp_server`) with 14 tools over stdio; `observe_image` and `identify_image` accept either `image_base64` or `image_path` to sidestep tool-arg size caps
 - OpenAI function-calling JSON schemas (`vm export-tools`, snapshot-tested)
 - CLI (`vm`, Typer + Rich) with 17 commands
+
+**Console scripts** (registered in `pyproject.toml [project.scripts]`):
+- `vm` — CLI
+- `vemem-mcp-server` — stdio MCP server, direct-run without `python -m` gymnastics
+- `vemem-openclaw-sidecar` — openclaw integration sidecar (preview; officially supported in 0.1.1 — see Unreleased)
+
+**Agent Skills package**
+- [`skills/vemem/`](https://github.com/linville-charlie/vemem/tree/v0.1.0/skills/vemem) — conforming [agentskills.io](https://agentskills.io) skill. SKILL.md + three references (mcp-tools, examples, troubleshooting). Drops into any of the 35+ skills-compatible agent hosts.
 
 **Vemem facade**
 - Context-manager compatible (`with Vemem() as vem:`)

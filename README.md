@@ -29,20 +29,23 @@ Works as:
 - **an MCP server** any MCP-capable LLM client can call (Claude Desktop, Cursor, custom agents)
 - **OpenAI function-calling tool schemas** for any non-MCP function-calling LLM (OpenAI, Anthropic, Gemini, Ollama)
 - **a CLI** (`vm label`, `vm inspect`, `vm forget`, …) for manual work and debugging
-- **first-party host integrations** (see [Integrations](#integrations) below) — vemem slots in as your host's automatic image-understanding layer, mem0-style, without the agent needing to call a tool
 - **an [Agent Skills](https://agentskills.io) package** at [`skills/vemem/`](./skills/vemem/) that drops into Claude, Claude Code, Cursor, Hermes Agent, OpenClaw, Goose, OpenHands, Letta, and 25+ other skills-compatible hosts
+- **first-party host integrations** — preview (openclaw); official support targeted for v0.1.1
 
 ## Installation
 
 ```bash
+pip install vemem
+# or
+uv add vemem
+# or, for a repo checkout:
 git clone https://github.com/linville-charlie/vemem
-cd vemem
-uv sync
+cd vemem && uv sync
 ```
 
-On first use, `uv run python -c "from vemem import Vemem; Vemem()"` will download InsightFace's `buffalo_l` weights (~200MB) to `~/.insightface/`. Offline-only deployments should pre-install the weights.
+On first use, `python -c "from vemem import Vemem; Vemem()"` will download InsightFace's `buffalo_l` weights (~200MB) to `~/.insightface/`. Offline-only deployments should pre-install the weights.
 
-Python 3.12 and 3.13 supported. 3.14 is blocked by a lancedb 0.19 segfault; we pin to 3.13 locally via `.python-version`.
+Python 3.12 and 3.13 supported. 3.14 is blocked by a lancedb 0.19 segfault; we pin to 3.13 locally via `.python-version`. Install pulls in the torch + insightface stack (~1.1GB on disk).
 
 ## Quick start
 
@@ -107,11 +110,12 @@ vemem is designed to slot under an existing agent framework as the **automatic i
 
 | Host | Status | Docs |
 |---|---|---|
-| [openclaw](https://openclaw.dev) | **Supported (v0.1)** | [`integrations/openclaw/README.md`](./integrations/openclaw/README.md) |
-| Anything MCP-capable (Claude Desktop, Cursor, custom MCP clients) | Supported via the MCP server | [`docs/examples/mcp_usage.md`](./docs/examples/mcp_usage.md) |
-| Anything OpenAI-function-calling capable (OpenAI, Groq, Ollama-tools) | Supported via tool schemas | [`docs/examples/openai_tools.md`](./docs/examples/openai_tools.md) |
+| Anything MCP-capable (Claude Desktop, Cursor, custom MCP clients) | Supported | [`docs/examples/mcp_usage.md`](./docs/examples/mcp_usage.md) |
+| Anything OpenAI-function-calling capable (OpenAI, Groq, Ollama-tools) | Supported | [`docs/examples/openai_tools.md`](./docs/examples/openai_tools.md) |
+| Agent Skills hosts (Claude, Cursor, Hermes Agent, OpenClaw, Goose, Letta, etc.) | Supported via [`skills/vemem/`](./skills/vemem/) | [agentskills.io](https://agentskills.io) |
+| [openclaw](https://openclaw.dev) first-party sidecar | **Preview** — officially supported in v0.1.1 | [`integrations/openclaw/README.md`](./integrations/openclaw/README.md) |
 
-Additional hosts are welcome as PRs under `integrations/`. The HTTP sidecar shipped with vemem (`vemem-openclaw-sidecar`, installed with the package) can be reused for any framework that can run a child process and call localhost HTTP.
+The preview openclaw sidecar ships as the `vemem-openclaw-sidecar` console script inside the 0.1.0 wheel; it works but the openclaw-side plugin and production docs land in 0.1.1. Additional hosts are welcome as PRs under `integrations/`.
 
 ## Compliance
 
