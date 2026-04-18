@@ -7,7 +7,26 @@ Versions before 1.0 may break API without notice.
 
 ## [Unreleased]
 
-Things land here between tagged releases.
+### Added
+
+**openclaw: three install paths, co-bundled skill**
+- openclaw plugin now ships a mirror of the canonical `skills/vemem/` at
+  `integrations/openclaw/plugin/skills/vemem/`, and declares
+  `"skills": ["./skills"]` in `openclaw.plugin.json`. When a user enables the
+  plugin, openclaw auto-loads the bundled skill — matching the pattern
+  established by Discord, Slack, and `memory-lancedb-pro`.
+- `integrations/openclaw/README.md` rewritten around a three-path install
+  matrix (skill only · plugin only · plugin + bundled skill) so people can
+  pick their comfort level. Skill-only stays the lightest touch; plugin-only
+  is the always-on auto-describe; "both" composes and is the recommended
+  default. All three use the same PyPI package and the same `~/.vemem`
+  store — no duplication.
+- `scripts/sync-bundled-skill.sh` keeps the plugin-bundled skill mirror in
+  sync with the canonical `skills/vemem/`. Planned: a CI check enforcing
+  bit-for-bit equality so the mirror can't drift.
+- Install docs updated to lead with PyPI (`uv tool install vemem` /
+  `pipx install vemem`) rather than the `git+https://` URL now that vemem
+  is published.
 
 ## [0.1.1] — 2026-04-18
 

@@ -4,6 +4,7 @@
   "description": "Replaces the default image-description provider with vemem — persistent visual identity (face recognition + recall) via a local Python sidecar shipped with vemem.",
   "version": "0.1.0",
   "kind": "capability",
+  "skills": ["./skills"],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

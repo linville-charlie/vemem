@@ -1,10 +1,61 @@
 # vemem ⇄ [openclaw](https://openclaw.dev) — first-party integration
 
-vemem is supported as an automatic image-understanding provider for openclaw. After installing, every image attachment your agent receives is transparently described through vemem — face detection + persistent identity + recalled facts — before the thinking LLM sees the conversation. No agent-side tool calls, no prompting, no SOUL.md nudges. The agent just sees text like `"vemem: 1 face(s) detected. Recognized: Charlie (conf 0.94). Known facts: [training for Boston marathon]"` in place of whatever the default vision model would have produced.
+vemem is supported as a first-party openclaw integration. Pick the install path that fits your comfort level; they compose.
 
-The same seam mem0/supermemory use for conversational memory, applied to visual identity.
+| Install path | What it gives you | Who it's for |
+|---|---|---|
+| **1. Skill only** | Agent-invoked identity work. You send images the way you always do (openclaw's default vision model captions them); the agent reaches for vemem's MCP tools when the conversation asks "who is this?" / "that's Dana" / "forget them." Smallest surface area. | People who want vemem under agent control, not on every image. |
+| **2. Plugin only** | Automatic image-understanding provider. Every image attachment in the session is described through vemem **before the LLM sees it** — face count, recognized entities, known facts. No agent prompting needed. | People who want the mem0-for-faces experience: implicit, always-on. |
+| **3. Plugin + bundled skill (recommended)** | Both. The plugin ships a copy of the skill inside its `skills/` directory, so enabling the plugin auto-loads the skill. Images auto-describe; the agent still knows to use `label` / `merge` / `forget` when the user signals corrections. | Most users. Matches the pattern Discord, Slack, and memory-lancedb-pro use in openclaw. |
+
+The three are one codebase — the plugin and the skill talk to the same `vemem` Python library and the same `~/.vemem` LanceDB store.
 
 > **Platform status:** end-to-end verified on **Ubuntu 24.04** (kernel 6.8, Python 3.13, 4 CPU cores, CPU-only InsightFace). **macOS and Windows install steps are written from the docs of the underlying tools but have not been run by the authors.** If you hit a platform-specific issue, please open an issue at https://github.com/linville-charlie/vemem/issues — we'll fold the fix back in.
+
+## Pick your path
+
+### Path 1 — Skill only
+
+From ClawHub:
+
+```bash
+openclaw skills install vemem
+```
+
+Or drop the folder in by hand — the canonical skill lives at [`skills/vemem/`](../../skills/vemem/) in this repo, copy-pasteable into any `~/.openclaw/workspace/skills/` directory.
+
+You still need the Python library for the MCP tools the skill teaches the agent to call — it's on [PyPI](https://pypi.org/project/vemem/):
+
+```bash
+uv tool install vemem          # recommended — puts `vm`, `vemem-mcp-server`,
+                               # and `vemem-openclaw-sidecar` on your PATH
+# or: pipx install vemem
+# or: pip install vemem        (into a venv you manage)
+```
+
+Register the MCP server in `openclaw.json`:
+
+```json
+"mcp": {
+  "servers": {
+    "vemem": {
+      "command": "vemem-mcp-server",
+      "args": [],
+      "env": { "VEMEM_HOME": "/home/you/.vemem" }
+    }
+  }
+}
+```
+
+Restart the gateway. Done — the skill tells the agent when to use the tools the MCP server exposes.
+
+### Path 2 — Plugin only
+
+Skip to the [Wire it up](#wire-it-up) section below. The plugin ships a bundled skill alongside it (see Path 3); if you truly only want the plugin, remove `"skills": ["./skills"]` from `openclaw.plugin.json` in your copy.
+
+### Path 3 — Plugin + bundled skill (recommended)
+
+Follow [Wire it up](#wire-it-up). The plugin's `openclaw.plugin.json` declares `"skills": ["./skills"]`, and the plugin package includes a mirror of the canonical skill at `plugin/skills/vemem/`. openclaw loads the skill automatically when the plugin is enabled. No extra install step for the skill.
 
 ## Architecture
 
@@ -45,9 +96,11 @@ Corrections (`label`, `merge`, `forget`, `undo`) are exposed separately via the 
 | `README.md` | This file — the canonical install + usage guide. |
 | `plugin/index.ts` | The openclaw plugin. Registers vemem as a media-understanding provider and manages the sidecar. |
 | `plugin/package.json` | openclaw extension descriptor (`main: "index.ts"`). |
-| `plugin/openclaw.plugin.json` | Plugin manifest + JSON Schema config surface. |
+| `plugin/openclaw.plugin.json` | Plugin manifest + JSON Schema config surface. Declares `"skills": ["./skills"]` so the bundled skill auto-loads when the plugin is enabled. |
+| `plugin/skills/vemem/` | Mirror of the canonical [`skills/vemem/`](../../skills/vemem/). Loaded by openclaw automatically when the plugin is enabled. Kept in sync via [`scripts/sync-bundled-skill.sh`](../../scripts/sync-bundled-skill.sh). |
+| `plugin/skills/README.md` | Explains the mirror pattern and how to update it. |
 
-The Python sidecar ships in the vemem Python package at `src/vemem/integrations/openclaw/sidecar.py`, exposed via the `vemem-openclaw-sidecar` console script. The plugin launches it automatically.
+The Python sidecar ships in the vemem Python package at `src/vemem/integrations/openclaw/sidecar.py`, exposed via the `vemem-openclaw-sidecar` console script that `pip install vemem` puts on your `PATH`. The plugin launches it automatically.
 
 ## Prerequisites
 
@@ -61,14 +114,15 @@ The Python sidecar ships in the vemem Python package at `src/vemem/integrations/
 
 ## Install — two modes
 
-### Mode A: tool install (recommended — what the README verifies)
+### Mode A: PyPI (recommended — what the README verifies)
 
-Install vemem into an isolated environment whose console scripts land on your user `PATH`:
+vemem is published on [PyPI](https://pypi.org/project/vemem/). Install it into an isolated environment whose console scripts land on your user `PATH`:
 
 ```bash
-uv tool install git+https://github.com/linville-charlie/vemem
-# or: pipx install git+https://github.com/linville-charlie/vemem
-# or (once vemem is on PyPI): uv tool install vemem / pipx install vemem
+uv tool install vemem
+# or: pipx install vemem
+# or (from the git tip rather than the latest PyPI release):
+#    uv tool install git+https://github.com/linville-charlie/vemem
 ```
 
 After this, three scripts are available:
