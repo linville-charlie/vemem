@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Python 3.12+ and the vemem package (pip install vemem). InsightFace model weights (~200MB) download on first use.
 metadata:
   homepage: https://github.com/linville-charlie/vemem
-  version: "0.1"
+  version: "0.1.1"
 ---
 
 # vemem — visual entity memory
@@ -46,7 +46,7 @@ Enable it only if you understand you're granting an always-on face-recognition l
 ### Verification & provenance
 
 - Source: [github.com/linville-charlie/vemem](https://github.com/linville-charlie/vemem) · MIT license
-- Release tags are signed commits on `main`; pin a version in production (e.g. `vemem==0.1.0`) rather than tracking `latest`
+- Release tags are signed commits on `main`; pin a version in production (e.g. `vemem==0.1.1`) rather than tracking `latest`
 - `pip show -f vemem` lists every file the install adds to your environment
 - To audit what the MCP server or sidecar actually touches at runtime:
   - Linux/macOS: `lsof -p <pid>` (open files + sockets) or `strace -e trace=file,network -p <pid>`

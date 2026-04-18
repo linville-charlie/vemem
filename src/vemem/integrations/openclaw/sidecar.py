@@ -17,13 +17,27 @@ Run it three ways:
 - **directly from source**:                   ``python sidecar.py``
 
 Env vars:
-    VEMEM_HOME       — LanceDB path (default ~/.vemem)
-    VEMEM_HTTP_PORT  — listen port (default 18790)
-    VEMEM_HTTP_HOST  — bind address (default 127.0.0.1)
+    VEMEM_HOME            — LanceDB path (default ~/.vemem)
+    VEMEM_HTTP_PORT       — listen port (default 18790)
+    VEMEM_HTTP_HOST       — bind address (default 127.0.0.1, NOT configurable
+                            to a non-loopback address without understanding
+                            that this exposes biometric data over the network)
+    VEMEM_SIDECAR_ACTOR   — actor string recorded against any write the
+                            sidecar performs (default ``sidecar:openclaw``).
+                            Currently the sidecar only reads (identify, recall)
+                            and idempotently writes observations (§3.1, no
+                            EventLog entry), so this env var has no observable
+                            effect today. Plumbed for future auto-label /
+                            auto-forget features.
 
-Endpoints:
+HTTP API surface (stable within 0.1.x minor versions):
     POST /describe  { path: "/abs/file.jpg" }  → { text: "vemem: ..." }
     POST /health    {}                          → { ok: true }
+
+The /describe and /health shapes are considered stable; additions are
+allowed in 0.x.y patch releases, but removals or breaking shape changes
+require a minor bump. The sidecar binds to 127.0.0.1 only — do not
+expose it to remote hosts.
 """
 
 from __future__ import annotations
@@ -58,13 +72,14 @@ logging.basicConfig(
 VEMEM_HOME = os.environ.get("VEMEM_HOME", str(Path.home() / ".vemem"))
 HOST = os.environ.get("VEMEM_HTTP_HOST", "127.0.0.1")
 PORT = int(os.environ.get("VEMEM_HTTP_PORT", "18790"))
+ACTOR = os.environ.get("VEMEM_SIDECAR_ACTOR", "sidecar:openclaw")
 
 log.info("warming up: loading InsightFace + LanceDBStore at %s", VEMEM_HOME)
 STORE = LanceDBStore(path=VEMEM_HOME)
 DETECTOR = InsightFaceDetector()
 ENCODER = InsightFaceEncoder()
 CLOCK = _SystemClock()
-log.info("warm: detector=%s encoder=%s", DETECTOR.id, ENCODER.id)
+log.info("warm: detector=%s encoder=%s actor=%s", DETECTOR.id, ENCODER.id, ACTOR)
 
 
 def _refresh_encoder_cache() -> None:

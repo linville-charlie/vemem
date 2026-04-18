@@ -207,6 +207,28 @@ If step 4 still reports `"Unrecognized"`, the sidecar is pointed at a different 
 
 **Send an image on your normal chat surface** (Discord, Telegram, Slack — wherever you have openclaw wired). The agent's response should reference what vemem reported ("that's Alice — the user") rather than free-form describing the pixels. If the agent still does generic scene description, something else is handling media-understanding — grep the gateway log for `gemini` / `openai` / `anthropic` describe calls and confirm `tools.media.image.models` is set as above.
 
+## HTTP API — stability
+
+The sidecar speaks HTTP on `127.0.0.1:18790` (configurable). Two endpoints are the stable surface as of v0.1.1:
+
+| Endpoint | Body | Response | Notes |
+|---|---|---|---|
+| `POST /describe` | `{"path": "/abs/file.jpg"}` | `{"text": "vemem: 1 face(s) detected.\nRecognized: ..."}` | Path must be readable by the sidecar process |
+| `POST /health` | `{}` | `{"ok": true}` | Also returns 200 with no body, 500 on startup failure |
+
+**Compatibility pledge**: `/describe` and `/health` shapes are stable within the 0.1.x line. Additions are allowed in patch releases; removals or breaking shape changes require a minor version bump. Any other paths or response fields should be considered internal — subject to change without notice.
+
+**Binding**: default bind is `127.0.0.1` on purpose. The sidecar holds biometric data and has no authentication. Do not rebind to `0.0.0.0` or a non-loopback address without putting an authenticated reverse proxy in front of it.
+
+**Env vars** (set on the sidecar process, not the plugin):
+
+| Var | Default | Meaning |
+|---|---|---|
+| `VEMEM_HOME` | `~/.vemem` | LanceDB store location |
+| `VEMEM_HTTP_HOST` | `127.0.0.1` | Bind address; see above |
+| `VEMEM_HTTP_PORT` | `18790` | Listen port |
+| `VEMEM_SIDECAR_ACTOR` | `sidecar:openclaw` | Actor string recorded against any writes the sidecar performs. Today the sidecar is read-mostly (observation writes are content-addressed and don't emit EventLog entries), so this has no visible effect yet — plumbed for future auto-label / auto-forget features |
+
 ## Caveats
 
 - **CPU-only InsightFace** on a 4-core/8GB machine adds 400–800 ms per describe after warmup. Acceptable for chat; not real-time.

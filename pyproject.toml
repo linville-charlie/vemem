@@ -1,6 +1,6 @@
 [project]
 name = "vemem"
-version = "0.1.0"
+version = "0.1.1"
 description = "Persistent visual entity memory for AI agents — self-hosted, model-agnostic"
 readme = "README.md"
 license = { text = "MIT" }

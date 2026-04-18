@@ -5,28 +5,51 @@ All notable changes to vemem.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions before 1.0 may break API without notice.
 
-## [Unreleased] — targeting 0.1.1
+## [Unreleased]
 
-The 0.1.0 wheel on PyPI includes the openclaw integration code and the
-`vemem-openclaw-sidecar` console script, but the openclaw-side plugin
-and production documentation aren't ready for it to be treated as a
-supported surface yet. Both land officially in 0.1.1; until then, treat
-the sidecar as preview and expect polish/renaming before final.
+Things land here between tagged releases.
 
-### Added (preview — officially supported in 0.1.1)
+## [0.1.1] — 2026-04-18
+
+Promotes the openclaw integration from preview (shipped in 0.1.0 but
+un-advertised) to officially supported. No code changes to the core
+library; the deltas are the sidecar's actor-attribution plumbing, HTTP
+API stability pledge, and docs.
+
+### Added
 
 **First-party integrations**
-- `vemem.integrations.openclaw` — automatic image-understanding provider for [openclaw](https://openclaw.dev). Ships a long-lived HTTP sidecar (`vemem-openclaw-sidecar` console script) plus a drop-in TypeScript plugin under `integrations/openclaw/plugin/`. Registers vemem as openclaw's media-understanding provider so every image attachment is transparently face-recognized + fact-recalled before the thinking LLM sees the conversation — no agent-side tool calls required.
-- `integrations/` top-level directory for future host integrations.
+- `vemem.integrations.openclaw` — **officially supported**. Ships a
+  long-lived HTTP sidecar (`vemem-openclaw-sidecar` console script) plus
+  a drop-in TypeScript plugin at `integrations/openclaw/plugin/`.
+  Registers vemem as openclaw's media-understanding provider: every
+  image attachment is face-recognized + fact-recalled before the
+  thinking LLM sees the conversation, with no agent-side tool calls.
+  End-to-end verified on Ubuntu 24.04.
+- Sidecar recognizes `VEMEM_SIDECAR_ACTOR` env var (default
+  `sidecar:openclaw`). Today the sidecar only reads the gallery and
+  writes content-addressed observations that don't emit EventLog
+  entries, so the var has no observable effect — it's plumbed for
+  future auto-label / auto-forget features.
+- `integrations/openclaw/README.md` gains an "HTTP API — stability"
+  section with an explicit compatibility pledge: `/describe` and
+  `/health` shapes are stable within 0.1.x, the bind is 127.0.0.1 only,
+  and other endpoints are internal.
 
 **Bridges**
-- `bridges/openclaw_bridge.py` — ollama-powered CLI demo (VLM + thinking LLM via vemem). Illustrates the observe → identify → recall → reason flow end-to-end with a hard invariant that image bytes never reach the thinking LLM.
+- `bridges/openclaw_bridge.py` — ollama-powered CLI demo (VLM + thinking
+  LLM via vemem). Illustrates the observe → identify → recall → reason
+  flow end-to-end with a hard invariant that image bytes never reach
+  the thinking LLM.
 
-### To finalize before tagging 0.1.1
+### Changed
 
-- Openclaw-side plugin loader docs + tested against current openclaw release.
-- Audit actor-attribution story for the sidecar (parallel to the MCP server's `VEMEM_MCP_ACTOR` fix).
-- Decide whether to expose the sidecar's HTTP API as a public surface or keep it internal-to-openclaw-only.
+- README "Works as" list and Integrations table promote openclaw from
+  "preview" to "Supported (v0.1.1)".
+
+### Fixed
+
+- n/a — no core bugs in this cycle.
 
 ## [0.1.0] — 2026-04-17 — initial v0
 

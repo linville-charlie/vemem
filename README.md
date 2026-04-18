@@ -30,7 +30,7 @@ Works as:
 - **OpenAI function-calling tool schemas** for any non-MCP function-calling LLM (OpenAI, Anthropic, Gemini, Ollama)
 - **a CLI** (`vm label`, `vm inspect`, `vm forget`, …) for manual work and debugging
 - **an [Agent Skills](https://agentskills.io) package** at [`skills/vemem/`](./skills/vemem/) that drops into Claude, Claude Code, Cursor, Hermes Agent, OpenClaw, Goose, OpenHands, Letta, and 25+ other skills-compatible hosts
-- **first-party host integrations** — preview (openclaw); official support targeted for v0.1.1
+- **first-party host integrations** — openclaw is fully supported (v0.1.1) as an automatic image-understanding provider; slots in mem0-style without agent-side tool calls. See [Integrations](#integrations).
 
 ## Installation
 
@@ -113,9 +113,11 @@ vemem is designed to slot under an existing agent framework as the **automatic i
 | Anything MCP-capable (Claude Desktop, Cursor, custom MCP clients) | Supported | [`docs/examples/mcp_usage.md`](./docs/examples/mcp_usage.md) |
 | Anything OpenAI-function-calling capable (OpenAI, Groq, Ollama-tools) | Supported | [`docs/examples/openai_tools.md`](./docs/examples/openai_tools.md) |
 | Agent Skills hosts (Claude, Cursor, Hermes Agent, OpenClaw, Goose, Letta, etc.) | Supported via [`skills/vemem/`](./skills/vemem/) | [agentskills.io](https://agentskills.io) |
-| [openclaw](https://openclaw.dev) first-party sidecar | **Preview** — officially supported in v0.1.1 | [`integrations/openclaw/README.md`](./integrations/openclaw/README.md) |
+| [openclaw](https://openclaw.dev) first-party sidecar | **Supported (v0.1.1)** | [`integrations/openclaw/README.md`](./integrations/openclaw/README.md) |
 
-The preview openclaw sidecar ships as the `vemem-openclaw-sidecar` console script inside the 0.1.0 wheel; it works but the openclaw-side plugin and production docs land in 0.1.1. Additional hosts are welcome as PRs under `integrations/`.
+The openclaw integration ships the `vemem-openclaw-sidecar` console script plus a drop-in TypeScript plugin under [`integrations/openclaw/plugin/`](./integrations/openclaw/plugin). Install, register the plugin, restart the openclaw gateway — every image attachment in the conversation is face-recognized + fact-recalled before the thinking LLM sees the message. End-to-end verified on Ubuntu 24.04; macOS and Windows install paths are documented but community-reports welcome.
+
+Additional hosts are welcome as PRs under `integrations/`. The HTTP sidecar shape (`POST /describe`, `POST /health` on `127.0.0.1:18790`) is stable within the 0.1.x line; any host that can run a child process and call localhost HTTP can reuse it.
 
 ## Compliance
 
