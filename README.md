@@ -115,7 +115,13 @@ vemem is designed to slot under an existing agent framework as the **automatic i
 | Agent Skills hosts (Claude, Cursor, Hermes Agent, OpenClaw, Goose, Letta, etc.) | Supported via [`skills/vemem/`](./skills/vemem/) | [agentskills.io](https://agentskills.io) |
 | [openclaw](https://openclaw.dev) first-party sidecar | **Supported (v0.1.1)** | [`integrations/openclaw/README.md`](./integrations/openclaw/README.md) |
 
-The openclaw integration ships the `vemem-openclaw-sidecar` console script plus a drop-in TypeScript plugin under [`integrations/openclaw/plugin/`](./integrations/openclaw/plugin). Install, register the plugin, restart the openclaw gateway — every image attachment in the conversation is face-recognized + fact-recalled before the thinking LLM sees the message. End-to-end verified on Ubuntu 24.04; macOS and Windows install paths are documented but community-reports welcome.
+The openclaw integration ships three install paths — pick by how much automation you want:
+
+1. **Skill only** (`openclaw skills install vemem`) — the agent reaches for vemem's MCP tools when the conversation calls for it. No automatic image interception.
+2. **Plugin only** (drop `integrations/openclaw/plugin/` in, register in `openclaw.json`) — every image is face-recognized + fact-recalled automatically before the thinking LLM sees it.
+3. **Plugin + bundled skill** (recommended) — the plugin ships a mirror of the skill at `plugin/skills/vemem/` and auto-loads it via `openclaw.plugin.json → "skills"`. Both layers compose. Same pattern Discord, Slack, and memory-lancedb-pro use in openclaw.
+
+All three rely on the `vemem` PyPI package (`pip install vemem` / `uv tool install vemem`), which puts `vm`, `vemem-mcp-server`, and `vemem-openclaw-sidecar` on your `PATH`. End-to-end verified on Ubuntu 24.04; macOS and Windows install paths are documented but community-reports welcome.
 
 Additional hosts are welcome as PRs under `integrations/`. The HTTP sidecar shape (`POST /describe`, `POST /health` on `127.0.0.1:18790`) is stable within the 0.1.x line; any host that can run a child process and call localhost HTTP can reuse it.
 

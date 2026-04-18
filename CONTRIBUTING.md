@@ -70,6 +70,28 @@ Tests mirror the source tree under `tests/`.
 - Commit messages use lowercase prefixes: `feat(core):`, `feat(storage):`, `refactor(ops):`, `docs:`, `chore:`. Include `Co-Authored-By:` for agent-written work.
 - Line length 100. Ruff format is authoritative.
 
+## Editing the agent skill
+
+The canonical skill lives at [`skills/vemem/`](./skills/vemem/). The openclaw plugin ships a **mirror** at `integrations/openclaw/plugin/skills/vemem/` so that `cp -r plugin ~/.openclaw/extensions/…` brings the skill with it (a symlink would point outside the copied tree and break).
+
+**Workflow when you edit the skill:**
+
+1. Edit `skills/vemem/SKILL.md` or any file under `skills/vemem/references/`.
+2. Run the sync script:
+   ```bash
+   scripts/sync-bundled-skill.sh
+   ```
+3. Commit both trees in the same commit.
+
+Verify the mirror matches before pushing:
+
+```bash
+diff -rq skills/vemem integrations/openclaw/plugin/skills/vemem
+# should print nothing
+```
+
+A CI check enforcing bit-for-bit equality between the two trees is on the backlog. Until then, the sync script is your responsibility.
+
 ## Running the integration suite
 
 ```bash
