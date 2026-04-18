@@ -11,7 +11,8 @@ Symlink (or copy) `skills/vemem/` into your host's skills directory:
 | Claude.ai (Claude API) | upload via [agent-skills UI](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) |
 | Claude Code | `~/.claude/skills/vemem` |
 | Hermes Agent | `~/.hermes/skills/vemem` |
-| OpenClaw | `~/.openclaw/skills/vemem` |
+| OpenClaw (skill only) | `~/.openclaw/skills/vemem` |
+| OpenClaw (with the first-party plugin) | Auto-loaded — the plugin ships a mirror at `integrations/openclaw/plugin/skills/vemem/` and declares it in its manifest. See [`../integrations/openclaw/README.md`](../integrations/openclaw/README.md) |
 | Cursor | `.cursor/skills/vemem` (project) or the global config path |
 | Goose, OpenHands, Gemini CLI, others | see each host's skills docs |
 

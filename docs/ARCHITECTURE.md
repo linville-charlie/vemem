@@ -66,6 +66,18 @@ Every surface is a thin wrapper over `vemem.core.ops`. They exist because differ
 
 Key invariant: **all four produce the same EventLog entries and leave the store in the same state.** If you label an entity via the CLI and identify it via MCP, it's the same entity.
 
+### 1a. Host integrations — sitting *under* a framework instead of being called by it
+
+Beyond the four surfaces above, vemem ships first-party integrations that slot into specific agent hosts as the automatic image-understanding layer — the agent doesn't call a vemem tool; vemem is just how the host describes images (mem0-style).
+
+| Host | How it's wired | Source of truth |
+|---|---|---|
+| [openclaw](https://openclaw.dev) | TypeScript plugin at `integrations/openclaw/plugin/` registers `describeImage` via `registerMediaUnderstandingProvider`; spawns `vemem-openclaw-sidecar` (Python, `127.0.0.1:18790`) for the work | `integrations/openclaw/README.md` |
+
+The openclaw integration offers three install paths (skill-only, plugin-only, plugin+bundled-skill). The plugin ships a **mirror** of `skills/vemem/` at `integrations/openclaw/plugin/skills/vemem/` and declares `"skills": ["./skills"]` in its manifest, so enabling the plugin auto-loads the agent skill alongside it. The mirror is kept in sync via `scripts/sync-bundled-skill.sh`. See CONTRIBUTING.md for the edit workflow.
+
+Additional host integrations are welcome under `integrations/`. The HTTP sidecar shape (`POST /describe`, `POST /health` on loopback) is stable within 0.1.x and can be reused by any host that can run a child process.
+
 ### 2. Core ops — the semantic layer
 
 `vemem.core.ops` holds 13 pure functions. Each takes a `Store`, a `Clock`, an `actor` string, and whatever op-specific inputs it needs. No global state. No hidden singletons. No I/O except through the Store.
